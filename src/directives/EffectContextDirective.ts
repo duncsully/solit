@@ -1,57 +1,37 @@
 import { AsyncDirective, directive } from 'lit/async-directive.js'
 import { TemplateResult } from 'lit'
-import { ComputedObservable, batch, computed } from '../state'
-
-const noop = () => {}
+import { Effect, watch } from '../state'
 
 /**
  * A stack of effects that are tied to the next context
  */
 const effectsStack = [[]] as Effect[][]
 
-export type Effect = () => void | (() => void)
-
 class EffectContextDirective extends AsyncDirective {
   effects = [] as Effect[]
-  watchers = [] as ComputedObservable<any>[]
-  cleanups = new WeakMap<Function, Function>()
+  cleanUps = [] as Function[]
 
   render(template: TemplateResult) {
     this.effects = effectsStack.pop() ?? []
-    this.effects.forEach((effect) => {
-      const watcher = computed(() => {
-        let cleanup = this.cleanups.get(effect)
-        cleanup?.()
-        if (this.isConnected) {
-          batch(() => {
-            const newCleanup = effect()
-            if (newCleanup) {
-              this.cleanups.set(effect, newCleanup)
-            }
-          })
-        }
-      })
-      this.watchers.push(watcher)
-      watcher.subscribe(noop)
-    })
+    this.setWatchers()
     effectsStack.push([])
     return template
   }
 
   disconnected() {
-    this.watchers.forEach((watcher) => {
-      watcher.unsubscribe(noop)
+    this.cleanUps.forEach((cleanup) => {
+      cleanup()
     })
-    this.effects.forEach((effect) => {
-      const cleanup = this.cleanups.get(effect)
-      cleanup?.()
-      this.cleanups.delete(effect)
-    })
+    this.cleanUps = []
   }
 
   reconnected() {
-    this.watchers.forEach((watcher) => {
-      watcher.subscribe(noop)
+    this.setWatchers()
+  }
+
+  protected setWatchers() {
+    this.effects.forEach((effect) => {
+      this.cleanUps.push(watch(effect))
     })
   }
 }

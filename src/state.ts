@@ -9,37 +9,13 @@ export const notEqual = <T>(
   secondValue: T | undefined
 ) => !Object.is(firstValue, secondValue)
 
-export class Observable<T> {
-  constructor(protected _value: T) {}
-
-  get value() {
-    return this._value
-  }
-
-  observe = (subscriber: Subscriber<T>) => {
-    this._subscribers.add(subscriber)
-    return () => this.unsubscribe(subscriber)
-  }
-
-  subscribe = (subscriber: Subscriber<T>) => {
-    subscriber(this._value)
-    return this.observe(subscriber)
-  }
-
-  unsubscribe = (subscriber: Subscriber<T>) => {
-    this._subscribers.delete(subscriber)
-  }
-
-  protected _subscribers = new Set<Subscriber<T>>()
-}
-
 /**
- * An atomic state piece that allows subscribing to changes and tracks
- * dependent Computed and Reactive values
+ * Core observable class that allows subscribing to changes,
+ * reading values, and responding to changes
  */
-export class ComputedObservable<T> {
-  static context: ComputedObservable<any>[] = []
-  static batchedUpdateChecks: undefined | Set<ComputedObservable<any>>
+export class Observable<T> {
+  static context: Computed<any>[] = []
+  static batchedUpdateChecks: undefined | Set<Observable<any>>
   /**
    * All subscription updates will be deferred until after passed action has run,
    * preventing a subscriber from being updated multiple times for multiple
@@ -48,22 +24,86 @@ export class ComputedObservable<T> {
   static batch(action: () => void) {
     // If there is already a set, this is a nested call, don't flush until we
     // return to the top level
-    const flush = !ComputedObservable.batchedUpdateChecks
-    ComputedObservable.batchedUpdateChecks ??= new Set()
+    const flush = !Computed.batchedUpdateChecks
+    Computed.batchedUpdateChecks ??= new Set()
     action()
     if (flush) {
-      ComputedObservable.batchedUpdateChecks?.forEach((observable) =>
+      Computed.batchedUpdateChecks?.forEach((observable) =>
         observable.updateSubscribers()
       )
-      ComputedObservable.batchedUpdateChecks = undefined
+      Computed.batchedUpdateChecks = undefined
     }
   }
 
   constructor(
-    protected getter?: () => T,
+    protected _value: T,
+    protected _options: ObservableOptions<T> = {}
+  ) {}
+
+  get value() {
+    return this.get()
+  }
+
+  observe(subscriber: Subscriber<T>) {
+    this._subscribers.add(subscriber)
+    return () => this.unsubscribe(subscriber)
+  }
+
+  subscribe(subscriber: Subscriber<T>) {
+    if (this._value !== undefined) subscriber(this._value)
+
+    return this.observe(subscriber)
+  }
+
+  unsubscribe(subscriber: Subscriber<T>) {
+    this._subscribers.delete(subscriber)
+  }
+
+  peak() {
+    return this._value
+  }
+
+  get() {
+    const caller = Observable.context.at(-1)
+    if (caller) this._dependents.add(caller)
+    return this.peak()
+  }
+
+  protected set(value: T) {
+    const { hasChanged = notEqual } = this._options
+    const prevValue = this._value
+
+    if (hasChanged(prevValue, value)) {
+      this._value = value
+      this._dependents.forEach((dependent) => dependent.checkUpdates())
+      if (Observable.batchedUpdateChecks) {
+        Observable.batchedUpdateChecks.add(this)
+      } else {
+        this.updateSubscribers()
+      }
+    }
+  }
+
+  protected updateSubscribers() {
+    this._subscribers.forEach((subscriber) => subscriber(this._value))
+  }
+
+  protected _subscribers = new Set<Subscriber<T>>()
+  protected _dependents = new Set<Computed<any>>()
+}
+
+/**
+ * A computed observable that tracks dependencies and updates lazily
+ * when they change if there are subscribers
+ */
+export class Computed<T> extends Observable<T> {
+  constructor(
+    protected getter: () => T,
     protected _options: ObservableOptions<T> = {}
   ) {
-    // Need to compute the initial value to build the dependency graph
+    // We need to initialize first to build the dependency graph,
+    // and then we'll have the initial value to set
+    super(undefined as T, _options)
     this.computeValue()
   }
 
@@ -71,135 +111,55 @@ export class ComputedObservable<T> {
     return this.get()
   }
 
-  /**
-   * Gets the current value without updating dependents
-   */
   peak = () => {
     if (this._stale) {
       this.computeValue()
     }
-    return this._value
+    return super.peak()
   }
 
-  /**
-   * Gets the current value and tracks dependencies
-   */
   get = () => {
-    const caller = ComputedObservable.context.at(-1)
-    if (caller) this._dependents.add(caller)
-    return this.peak()
-  }
-
-  /**
-   * Observes for changes without immediately calling subscriber with current value
-   * @param subscriber
-   * @returns Unsubscribe function
-   */
-  observe = (subscriber: Subscriber<T>) => {
-    this._subscribers.add(subscriber)
-    // It's possible we have new dependencies that weren't tracked previously
-    // due to no subscriptions prompting the value to be recomputed
-    // This subscriber needs to be updated if those new dependencies get updated
     if (this._stale) {
       this.computeValue()
     }
-    return () => this.unsubscribe(subscriber)
+    return super.get()
   }
 
-  /**
-   * Observes for changes and immediately calls subscriber with current value
-   * @param subscriber
-   * @returns Unsubscribe function
-   */
-  subscribe = (subscriber: Subscriber<T>) => {
-    subscriber(this._value)
-    return this.observe(subscriber)
-  }
-
-  unsubscribe = (updateHandler: Subscriber<T>) => {
-    this._subscribers.delete(updateHandler)
-  }
-
-  protected _value!: T
-
-  protected _stale = true
-
-  protected _dependents = new Set<ComputedObservable<any>>()
-
-  protected _subscribers = new Set<Subscriber<T>>()
-
-  /**
-   * Recurse the dependency graph to get all updates that need to be run
-   * @param isTop Whether this is the top level call, if so, we don't need to
-   * check if the value has changed
-   * @returns
-   */
-  protected getAllUpdates = (isTop?: boolean) => {
-    const { hasChanged = notEqual } = this._options
-    const allSubscribers: (() => void)[] = []
-
-    if (this._subscribers.size) {
-      const oldValue = this._value
-      this.computeValue()
-      // Writable observable will already have had its previous and new value checked
-      if (isTop || hasChanged(oldValue, this._value)) {
-        this._subscribers.forEach((subscriber) =>
-          allSubscribers.push(() => subscriber(this._value))
-        )
-      }
-    } else {
+  checkUpdates = () => {
+    if (!this._subscribers.size) {
       this._stale = true
+      return
     }
 
-    this._dependents.forEach((dependent) => {
-      allSubscribers.push(...dependent.getAllUpdates())
-    })
-
-    return allSubscribers
-  }
-
-  protected updateSubscribers() {
-    const updates = this.getAllUpdates(true)
-    updates.forEach((update) => update())
-  }
-
-  protected setDependentsStale() {
-    this._dependents.forEach((dependent) => {
-      dependent._stale = true
-      dependent.setDependentsStale()
-    })
+    this.computeValue()
   }
 
   protected computeValue() {
-    if (this.getter) {
-      ComputedObservable.context.push(this)
-      this._value = this.getter()
-      this._stale = false
-      ComputedObservable.context.pop()
-    }
+    Observable.context.push(this)
+    this.set(this.getter())
+    Observable.context.pop()
+
+    this._stale = false
   }
+
+  _stale = true
 }
 
-export class WritableObservable<T> extends ComputedObservable<T> {
-  constructor(protected initialValue: T, options?: ObservableOptions<T>) {
-    super(undefined, options)
-    this._value = initialValue
+/**
+ * A writable observable that allows setting a new value and can be
+ * tracked by Computed observables
+ */
+export class Writable<T> extends Observable<T> {
+  constructor(protected _initialValue: T, _options: ObservableOptions<T> = {}) {
+    super(_initialValue, _options)
+  }
+
+  set value(value: T) {
+    this.set(value)
   }
 
   set = (value: T) => {
-    const currentValue = this._value
-    this._value = value
-    const { hasChanged = notEqual } = this._options
-
-    if (!hasChanged(currentValue, value)) return
-
-    if (!ComputedObservable.batchedUpdateChecks) {
-      this.updateSubscribers()
-    } else {
-      ComputedObservable.batchedUpdateChecks.add(this)
-      // Mark all dependents as stale so they will be recomputed as needed
-      this.setDependentsStale()
-    }
+    super.set(value)
   }
 
   update = (updater: (currentValue: T) => T) => {
@@ -207,20 +167,28 @@ export class WritableObservable<T> extends ComputedObservable<T> {
   }
 
   reset = () => {
-    this.set(this.initialValue)
-  }
-
-  get value() {
-    return super.value
-  }
-  set value(newValue: T) {
-    this.set(newValue)
+    this.set(this._initialValue)
   }
 }
 
 export const state = <T>(value: T, options?: ObservableOptions<T>) =>
-  new WritableObservable(value, options)
+  new Writable(value, options)
 export const computed = <T>(getter: () => T, options?: ObservableOptions<T>) =>
-  new ComputedObservable(getter, options)
+  new Computed(getter, options)
 
-export const batch = ComputedObservable.batch
+export const batch = Observable.batch
+
+export type Effect = () => void | (() => void)
+
+export const watch = (callback: Effect) => {
+  let cleanup: (() => void) | void
+  const watcher = computed(() => {
+    cleanup?.()
+    cleanup = callback()
+  })
+  const unsubscribe = watcher.observe(() => {})
+  return () => {
+    unsubscribe()
+    cleanup?.()
+  }
+}

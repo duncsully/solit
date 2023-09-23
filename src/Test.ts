@@ -3,12 +3,7 @@ import { observe } from './directives/ObserveDirective'
 import { effect, effectContext } from './directives/EffectContextDirective'
 import { styleMap } from 'lit/directives/style-map.js'
 import { func } from './directives/FunctionDirective'
-import {
-  ComputedObservable,
-  WritableObservable,
-  computed,
-  state,
-} from './state'
+import { Observable, Writable, computed, state } from './state'
 
 /*
 How it works:
@@ -26,7 +21,7 @@ component is mounted and when any of its states change.
 
 const html = (strings: TemplateStringsArray, ...values: unknown[]) => {
   const litValues = values.map((v) => {
-    if (v instanceof ComputedObservable) {
+    if (v instanceof Observable) {
       return observe(v)
     }
     if (v instanceof Function) {
@@ -56,7 +51,7 @@ export const Test = (label: string, start: number = 0) => {
   `
 }
 
-const Doubled = (count: WritableObservable<number>) => {
+const Doubled = (count: Writable<number>) => {
   const doubled = computed(() => count.get() * 2)
 
   effect(() => {
@@ -92,10 +87,7 @@ export const App = () => {
   `
 }
 
-export const TodoItem = (
-  label: string,
-  checked: WritableObservable<boolean>
-) => {
+export const TodoItem = (label: string, checked: Writable<boolean>) => {
   const getStyles = () =>
     styleMap({
       textDecoration: checked.get() ? 'line-through' : 'none',
@@ -121,9 +113,7 @@ export const TodoItem = (
 
 /*
 To do:
-- Reimplement nubbins simplified
-  - watch function to call a callback when any nubbins used within it change, use for effect
-  - Separate set and update methods
+- State tests
 - Consider how router would work, especially prefetching
 - Post-render effects
 */
