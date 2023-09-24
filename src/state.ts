@@ -24,14 +24,17 @@ export class Observable<T> {
   static batch(action: () => void) {
     // If there is already a set, this is a nested call, don't flush until we
     // return to the top level
-    const flush = !Computed.batchedUpdateChecks
-    Computed.batchedUpdateChecks ??= new Set()
+    const flush = !Observable.batchedUpdateChecks
+    Observable.batchedUpdateChecks ??= new Set()
     action()
     if (flush) {
-      Computed.batchedUpdateChecks?.forEach((observable) =>
-        observable.updateSubscribers()
-      )
-      Computed.batchedUpdateChecks = undefined
+      Observable.batchedUpdateChecks?.forEach((observable) => {
+        const { hasChanged = notEqual } = observable._options
+        if (hasChanged(observable._lastBroadcastValue, observable._value)) {
+          observable.updateSubscribers()
+        }
+      })
+      Observable.batchedUpdateChecks = undefined
     }
   }
 
@@ -39,10 +42,6 @@ export class Observable<T> {
     protected _value: T,
     protected _options: ObservableOptions<T> = {}
   ) {}
-
-  get value() {
-    return this.get()
-  }
 
   observe(subscriber: Subscriber<T>) {
     this._subscribers.add(subscriber)
@@ -86,10 +85,12 @@ export class Observable<T> {
 
   protected updateSubscribers() {
     this._subscribers.forEach((subscriber) => subscriber(this._value))
+    this._lastBroadcastValue = this._value
   }
 
   protected _subscribers = new Set<Subscriber<T>>()
   protected _dependents = new Set<Computed<any>>()
+  protected _lastBroadcastValue: T | undefined
 }
 
 /**
@@ -107,8 +108,19 @@ export class Computed<T> extends Observable<T> {
     this.computeValue()
   }
 
-  get value() {
-    return this.get()
+  observe = (subscriber: Subscriber<T>) => {
+    if (this._stale) {
+      this.computeValue()
+    }
+    return super.observe(subscriber)
+  }
+
+  subscribe = (subscriber: Subscriber<T>) => {
+    if (this._stale) {
+      this.computeValue()
+    }
+    subscriber(this._value)
+    return this.observe(subscriber)
   }
 
   peak = () => {
@@ -119,19 +131,21 @@ export class Computed<T> extends Observable<T> {
   }
 
   get = () => {
-    if (this._stale) {
-      this.computeValue()
-    }
-    return super.get()
+    const caller = Observable.context.at(-1)
+    if (caller) this._dependents.add(caller)
+    return this.peak()
   }
 
   checkUpdates = () => {
-    if (!this._subscribers.size) {
-      this._stale = true
+    // If there are no subscribers or if we're in a batch, defer
+    // updating value
+    if (this._subscribers.size && !Observable.batchedUpdateChecks) {
+      this.computeValue()
       return
     }
-
-    this.computeValue()
+    // Set self and dependents to stale so they'll recompute as needed
+    this._stale = true
+    this._dependents.forEach((dependent) => (dependent._stale = true))
   }
 
   protected computeValue() {
@@ -154,10 +168,6 @@ export class Writable<T> extends Observable<T> {
     super(_initialValue, _options)
   }
 
-  set value(value: T) {
-    this.set(value)
-  }
-
   set = (value: T) => {
     super.set(value)
   }
@@ -173,6 +183,7 @@ export class Writable<T> extends Observable<T> {
 
 export const state = <T>(value: T, options?: ObservableOptions<T>) =>
   new Writable(value, options)
+
 export const computed = <T>(getter: () => T, options?: ObservableOptions<T>) =>
   new Computed(getter, options)
 

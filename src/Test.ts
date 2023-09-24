@@ -113,6 +113,7 @@ export const TodoItem = (label: string, checked: Writable<boolean>) => {
 
 /*
 To do:
+- Better logic for tying effect to component, not just the next template
 - State tests
 - Consider how router would work, especially prefetching
 - Post-render effects
