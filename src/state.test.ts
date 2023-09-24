@@ -283,16 +283,20 @@ describe('Writable', () => {
     })
 
     it('works if Computed dependent is read during the same action any of its dependencies are updated in', () => {
-      const width = new Writable(1)
-      const length = new Writable(10)
-      const area = new Computed(() => width.get() * length.get())
-      const perimeter = new Computed(() => width.get() * 2 + length.get() * 2)
-      const height = new Writable(2)
+      const width = new Writable(1, { name: 'width' })
+      const length = new Writable(10, { name: 'length' })
+      const area = new Computed(() => width.get() * length.get(), {
+        name: 'area',
+      })
+      const perimeter = new Computed(() => width.get() * 2 + length.get() * 2, {
+        name: 'perimeter',
+      })
+      const height = new Writable(2, { name: 'height' })
       const getterCheck = vi.fn(() => area.get() * height.get())
-      const volume = new Computed(getterCheck)
+      const volume = new Computed(getterCheck, { name: 'volume' })
+      volume.observe(vi.fn())
       const perimeterSubscriber = vi.fn()
       perimeter.observe(perimeterSubscriber)
-      volume.observe(vi.fn())
       getterCheck.mockClear()
 
       batch(() => {
