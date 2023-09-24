@@ -16,7 +16,7 @@ export const notEqual = <T>(
  */
 export class Observable<T> {
   static context: Computed<any>[] = []
-  static batchedUpdateChecks: undefined | Set<Observable<any>>
+  static batchedUpdateChecks: null | Set<Observable<any>>
   /**
    * All subscription updates will be deferred until after passed action has run,
    * preventing a subscriber from being updated multiple times for multiple
@@ -30,13 +30,9 @@ export class Observable<T> {
     action()
     if (flush) {
       Observable.batchedUpdateChecks?.forEach((observable) => {
-        const value = observable.peak()
-        const { hasChanged = notEqual } = observable._options
-        if (hasChanged(observable._lastBroadcastValue, value)) {
-          observable.updateSubscribers()
-        }
+        observable.updateSubscribers()
       })
-      Observable.batchedUpdateChecks = undefined
+      Observable.batchedUpdateChecks = null
     }
   }
 
@@ -70,22 +66,6 @@ export class Observable<T> {
     return this.peak()
   }
 
-  protected set(value: T) {
-    const { hasChanged = notEqual } = this._options
-    const prevValue = this._value
-
-    if (hasChanged(prevValue, value)) {
-      this._value = value
-      this._dependents.forEach((dependent) => dependent.checkUpdates())
-      if (Observable.batchedUpdateChecks) {
-        Observable.batchedUpdateChecks.add(this)
-        this.addDependentsToBatch()
-      } else {
-        this.updateSubscribers()
-      }
-    }
-  }
-
   protected addDependentsToBatch() {
     this._dependents.forEach((dependent) => {
       if (dependent._subscribers.size) {
@@ -95,9 +75,20 @@ export class Observable<T> {
     })
   }
 
+  protected requestUpdate() {
+    if (Observable.batchedUpdateChecks) {
+      Observable.batchedUpdateChecks.add(this)
+    } else {
+      this.updateSubscribers()
+    }
+  }
+
   protected updateSubscribers() {
-    this._subscribers.forEach((subscriber) => subscriber(this._value))
-    this._lastBroadcastValue = this._value
+    const { hasChanged = notEqual } = this._options
+    if (hasChanged(this._lastBroadcastValue, this.peak())) {
+      this._subscribers.forEach((subscriber) => subscriber(this._value))
+      this._lastBroadcastValue = this._value
+    }
   }
 
   protected _subscribers = new Set<Subscriber<T>>()
@@ -114,13 +105,15 @@ export class Computed<T> extends Observable<T> {
     protected getter: () => T,
     protected _options: ObservableOptions<T> = {}
   ) {
-    // We need to initialize first to build the dependency graph,
-    // and then we'll have the initial value to set
+    // We need to initialize first to get `this`
     super(undefined as T, _options)
-    this.computeValue()
+    // Get the initial value to build the dependency graph
+    // and know whether the value has changed
+    this._lastBroadcastValue = this.peak()
   }
 
   observe = (subscriber: Subscriber<T>) => {
+    // If the value is stale, there might be new untracked dependencies
     if (this._stale) {
       this.computeValue()
     }
@@ -128,10 +121,7 @@ export class Computed<T> extends Observable<T> {
   }
 
   subscribe = (subscriber: Subscriber<T>) => {
-    if (this._stale) {
-      this.computeValue()
-    }
-    subscriber(this._value)
+    subscriber(this.peak())
     return this.observe(subscriber)
   }
 
@@ -149,20 +139,16 @@ export class Computed<T> extends Observable<T> {
   }
 
   checkUpdates = () => {
-    // If there are no subscribers or if we're in a batch, defer
-    // updating value
-    if (this._subscribers.size && !Observable.batchedUpdateChecks) {
-      this.computeValue()
-      return
-    }
-    // Set self and dependents to stale so they'll recompute as needed
     this._stale = true
+    if (this._subscribers.size) {
+      this.requestUpdate()
+    }
     this._dependents.forEach((dependent) => dependent.checkUpdates())
   }
 
   protected computeValue() {
     Observable.context.push(this)
-    this.set(this.getter())
+    this._value = this.getter()
     Observable.context.pop()
 
     this._stale = false
@@ -181,7 +167,14 @@ export class Writable<T> extends Observable<T> {
   }
 
   set = (value: T) => {
-    super.set(value)
+    const { hasChanged = notEqual } = this._options
+    const prevValue = this._value
+
+    if (hasChanged(prevValue, value)) {
+      this._value = value
+      this.requestUpdate()
+      this._dependents.forEach((dependent) => dependent.checkUpdates())
+    }
   }
 
   update = (updater: (currentValue: T) => T) => {
