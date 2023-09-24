@@ -2,6 +2,7 @@ export type Subscriber<T> = (value: T) => void
 
 export interface ObservableOptions<T> {
   hasChanged?(currentValue: T | undefined, newValue: T): boolean
+  name?: string
 }
 
 export const notEqual = <T>(
@@ -29,8 +30,9 @@ export class Observable<T> {
     action()
     if (flush) {
       Observable.batchedUpdateChecks?.forEach((observable) => {
+        const value = observable.peak()
         const { hasChanged = notEqual } = observable._options
-        if (hasChanged(observable._lastBroadcastValue, observable._value)) {
+        if (hasChanged(observable._lastBroadcastValue, value)) {
           observable.updateSubscribers()
         }
       })
@@ -77,10 +79,20 @@ export class Observable<T> {
       this._dependents.forEach((dependent) => dependent.checkUpdates())
       if (Observable.batchedUpdateChecks) {
         Observable.batchedUpdateChecks.add(this)
+        this.addDependentsToBatch()
       } else {
         this.updateSubscribers()
       }
     }
+  }
+
+  protected addDependentsToBatch() {
+    this._dependents.forEach((dependent) => {
+      if (dependent._subscribers.size) {
+        Observable.batchedUpdateChecks?.add(dependent)
+      }
+      dependent.addDependentsToBatch()
+    })
   }
 
   protected updateSubscribers() {
@@ -145,7 +157,7 @@ export class Computed<T> extends Observable<T> {
     }
     // Set self and dependents to stale so they'll recompute as needed
     this._stale = true
-    this._dependents.forEach((dependent) => (dependent._stale = true))
+    this._dependents.forEach((dependent) => dependent.checkUpdates())
   }
 
   protected computeValue() {
@@ -191,12 +203,17 @@ export const batch = Observable.batch
 
 export type Effect = () => void | (() => void)
 
-export const watch = (callback: Effect) => {
+export const watch = (callback: Effect, name: string = 'watcher') => {
+  let count = 1
   let cleanup: (() => void) | void
-  const watcher = computed(() => {
-    cleanup?.()
-    cleanup = callback()
-  })
+  const watcher = computed(
+    () => {
+      cleanup?.()
+      cleanup = callback()
+      return count++
+    },
+    { name }
+  )
   const unsubscribe = watcher.observe(() => {})
   return () => {
     unsubscribe()
