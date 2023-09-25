@@ -47,7 +47,7 @@ export class Observable<T> {
   }
 
   subscribe(subscriber: Subscriber<T>) {
-    if (this._value !== undefined) subscriber(this._value)
+    subscriber(this.peak())
 
     return this.observe(subscriber)
   }
@@ -57,6 +57,7 @@ export class Observable<T> {
   }
 
   peak() {
+    this._lastBroadcastValue = this._value
     return this._value
   }
 
@@ -105,11 +106,7 @@ export class Computed<T> extends Observable<T> {
     protected getter: () => T,
     protected _options: ObservableOptions<T> = {}
   ) {
-    // We need to initialize first to get `this`
     super(undefined as T, _options)
-    // Get the initial value to build the dependency graph
-    // and know whether the value has changed
-    this._lastBroadcastValue = this.peak()
   }
 
   observe = (subscriber: Subscriber<T>) => {

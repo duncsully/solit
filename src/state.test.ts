@@ -33,13 +33,11 @@ describe('Computed', () => {
         getterCheck()
         return [...array.get()].sort()
       })
+
+      sorted.subscribe(vi.fn())
       getterCheck.mockClear()
 
       sorted.get()
-
-      expect(getterCheck).not.toHaveBeenCalled()
-
-      sorted.subscribe(vi.fn())
 
       expect(getterCheck).not.toHaveBeenCalled()
 
@@ -54,9 +52,11 @@ describe('Computed', () => {
       const doubledFloored = new Computed(() => floored.get() * 2)
 
       const flooredSubscriber = vi.fn()
-      floored.observe(flooredSubscriber)
+      floored.subscribe(flooredSubscriber)
       const doubledFlooredSubscriber = vi.fn()
-      doubledFloored.observe(doubledFlooredSubscriber)
+      doubledFloored.subscribe(doubledFlooredSubscriber)
+      flooredSubscriber.mockClear()
+      doubledFlooredSubscriber.mockClear()
       float.set(1.2)
 
       expect(flooredSubscriber).not.toHaveBeenCalled()
@@ -124,7 +124,11 @@ describe('Writable', () => {
   describe('peak', () => {
     it('returns the primitive value passed to the constructor and does not update dependent Computeds', () => {
       const number = new Writable(1)
+
+      expect(number.peak()).toBe(1)
+
       const squared = new Computed(() => number.peak() ** 2)
+      squared.get()
       number.set(2)
 
       expect(squared.get()).toBe(1)
@@ -255,6 +259,7 @@ describe('Writable', () => {
       const length = new Writable(10)
       const getterCheck = vi.fn(() => width.get() * length.get())
       const area = new Computed(getterCheck)
+      area.get()
       getterCheck.mockClear()
 
       batch(() => {
@@ -272,7 +277,8 @@ describe('Writable', () => {
       const height = new Writable(10)
       const area = new Computed(() => width.get() * height.get())
       const subscriber = vi.fn()
-      area.observe(subscriber)
+      area.subscribe(subscriber)
+      subscriber.mockClear()
 
       Computed.batch(() => {
         width.set(2)
@@ -294,10 +300,11 @@ describe('Writable', () => {
       const height = new Writable(2, { name: 'height' })
       const getterCheck = vi.fn(() => area.get() * height.get())
       const volume = new Computed(getterCheck, { name: 'volume' })
-      volume.observe(vi.fn())
-      const perimeterSubscriber = vi.fn()
-      perimeter.observe(perimeterSubscriber)
+      volume.subscribe(vi.fn())
       getterCheck.mockClear()
+      const perimeterSubscriber = vi.fn()
+      perimeter.subscribe(perimeterSubscriber)
+      perimeterSubscriber.mockClear()
 
       batch(() => {
         width.set(2)
