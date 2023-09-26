@@ -2,15 +2,121 @@ import { batch, Computed, computed, state, watch, Writable } from './state'
 import { describe, it, expect, vi } from 'vitest'
 
 describe('Computed', () => {
-  describe('get', () => {
-    it('returns return value of function passed to constructor', () => {
-      const computedObservable = new Computed(() => 'hi')
+  describe('API', () => {
+    describe('get', () => {
+      it('returns return value of function passed to constructor', () => {
+        const computedObservable = new Computed(() => 'hi')
 
-      expect(computedObservable.get()).toBe('hi')
+        expect(computedObservable.get()).toBe('hi')
+      })
+    })
+
+    describe('peak', () => {
+      it('returns return value of function passed to constructor and does not update dependent Computeds', () => {
+        const number = new Writable(2)
+        const doubled = new Computed(() => number.get() * 2)
+        const quadrupledOnce = new Computed(() => doubled.peak() * 2)
+        quadrupledOnce.get()
+
+        number.set(3)
+
+        expect(quadrupledOnce.get()).toBe(8)
+      })
+    })
+
+    describe('observe', () => {
+      it('calls all callbacks provided if value changes', () => {
+        const number = new Writable(1)
+        const doubled = new Computed(() => number.get() * 2)
+        const subscriber1 = vi.fn()
+        doubled.observe(subscriber1)
+        const subscriber2 = vi.fn()
+        doubled.observe(subscriber2)
+
+        number.set(2)
+
+        expect(subscriber1).toHaveBeenCalledWith(4)
+        expect(subscriber2).toHaveBeenCalledWith(4)
+      })
+
+      it('does not call callback immediately', () => {
+        const number = new Writable(1)
+        const doubled = new Computed(() => number.get() * 2)
+        const subscriber = vi.fn()
+        doubled.observe(subscriber)
+
+        expect(subscriber).not.toHaveBeenCalled()
+      })
+
+      it('returns a function that unsubscribes the passed callback', () => {
+        const number = new Writable(1)
+        const doubled = new Computed(() => number.get() * 2)
+        const subscriber = vi.fn()
+        const unsubscribe = doubled.observe(subscriber)
+        doubled.observe(vi.fn())
+        unsubscribe()
+
+        number.set(2)
+
+        expect(subscriber).not.toHaveBeenCalled()
+      })
+    })
+
+    describe('subscribe', () => {
+      it('calls all callbacks provided if value changes', () => {
+        const number = new Writable(1)
+        const doubled = new Computed(() => number.get() * 2)
+        const subscriber1 = vi.fn()
+        doubled.subscribe(subscriber1)
+        const subscriber2 = vi.fn()
+        doubled.subscribe(subscriber2)
+
+        number.set(2)
+
+        expect(subscriber1).toHaveBeenCalledWith(4)
+        expect(subscriber2).toHaveBeenCalledWith(4)
+      })
+
+      it('calls callback immediately with current value', () => {
+        const number = new Writable(1)
+        const doubled = new Computed(() => number.get() * 2)
+        const subscriber = vi.fn()
+        doubled.subscribe(subscriber)
+
+        expect(subscriber).toHaveBeenCalledWith(2)
+      })
+
+      it('returns a function that unsubscribes the passed callback', () => {
+        const number = new Writable(1)
+        const doubled = new Computed(() => number.get() * 2)
+        const subscriber = vi.fn()
+        const unsubscribe = doubled.subscribe(subscriber)
+        subscriber.mockClear()
+        doubled.subscribe(vi.fn())
+        unsubscribe()
+
+        number.set(2)
+
+        expect(subscriber).not.toHaveBeenCalled()
+      })
+    })
+
+    describe('unsubscribe', () => {
+      it('removes passed callback from subscriptions', () => {
+        const number = new Writable(1)
+        const doubled = new Computed(() => number.get() * 2)
+        const subscriber = vi.fn()
+        doubled.observe(subscriber)
+        doubled.unsubscribe(subscriber)
+        number.set(2)
+
+        expect(subscriber).not.toHaveBeenCalled()
+      })
     })
   })
 
-  describe('reactivity', () => {
+  // Not important to the API contract, but important for behavior, e.g. performance
+  describe('implementation details', () => {
     it('calls subscribers when dependencies change', () => {
       const number = new Writable(1)
       const squared = new Computed(() => number.get() ** 2)
