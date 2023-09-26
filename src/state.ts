@@ -67,15 +67,6 @@ export class Observable<T> {
     return this.peak()
   }
 
-  protected addDependentsToBatch() {
-    this._dependents.forEach((dependent) => {
-      if (dependent._subscribers.size) {
-        Observable.batchedUpdateChecks?.add(dependent)
-      }
-      dependent.addDependentsToBatch()
-    })
-  }
-
   protected requestUpdate() {
     if (Observable.batchedUpdateChecks) {
       Observable.batchedUpdateChecks.add(this)
@@ -90,6 +81,17 @@ export class Observable<T> {
       this._subscribers.forEach((subscriber) => subscriber(this._value))
       this._lastBroadcastValue = this._value
     }
+  }
+
+  protected checkDependents() {
+    this._dependents.forEach((dependent) => {
+      dependent.checkUpdates()
+      // If the dependent has no subscribers, it can be garbage collected
+      // It'll be readded if .gets() this observable again
+      if (!dependent._subscribers.size) {
+        this._dependents.delete(dependent)
+      }
+    })
   }
 
   protected _subscribers = new Set<Subscriber<T>>()
@@ -140,7 +142,7 @@ export class Computed<T> extends Observable<T> {
     if (this._subscribers.size) {
       this.requestUpdate()
     }
-    this._dependents.forEach((dependent) => dependent.checkUpdates())
+    this.checkDependents()
   }
 
   protected computeValue() {
@@ -151,7 +153,7 @@ export class Computed<T> extends Observable<T> {
     this._stale = false
   }
 
-  _stale = true
+  protected _stale = true
 }
 
 /**
@@ -170,7 +172,7 @@ export class Writable<T> extends Observable<T> {
     if (hasChanged(prevValue, value)) {
       this._value = value
       this.requestUpdate()
-      this._dependents.forEach((dependent) => dependent.checkUpdates())
+      this.checkDependents()
     }
   }
 
