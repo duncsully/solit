@@ -2,6 +2,51 @@ import { batch, Computed, computed, state, watch, Writable } from './state'
 import { describe, it, expect, vi } from 'vitest'
 
 describe('Computed', () => {
+  describe('constructor', () => {
+    describe('cache', () => {
+      it('caches previous results up to provided cache value', () => {
+        const number = new Writable(1)
+        const getter = vi.fn(() => number.get() * 2)
+        const doubled = new Computed(getter, { cache: 2 })
+        // Cache with number = 1
+        doubled.get()
+        number.set(2)
+        // Cache with number = 2
+        doubled.get()
+        getter.mockClear()
+
+        number.set(1)
+
+        // Should load from cache
+        expect(doubled.get()).toBe(2)
+        expect(getter).not.toHaveBeenCalled()
+
+        number.set(2)
+
+        // Should load from cache
+        expect(doubled.get()).toBe(4)
+        expect(getter).not.toHaveBeenCalled()
+
+        // Should not load from cache
+        number.set(3)
+        expect(doubled.get()).toBe(6)
+        expect(getter).toHaveBeenCalled()
+        getter.mockClear()
+
+        // Should no longer be in cache
+        number.set(1)
+        expect(doubled.get()).toBe(2)
+        expect(getter).toHaveBeenCalled()
+        getter.mockClear()
+
+        // Should still be in cache
+        number.set(3)
+        expect(doubled.get()).toBe(6)
+        expect(getter).not.toHaveBeenCalled()
+      })
+    })
+  })
+
   describe('API', () => {
     describe('get', () => {
       it('returns return value of function passed to constructor', () => {

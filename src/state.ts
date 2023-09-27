@@ -1,8 +1,21 @@
 export type Subscriber<T> = (value: T) => void
 
-export interface ObservableOptions<T> {
+export type ObservableOptions<T> = {
   hasChanged?(currentValue: T | undefined, newValue: T): boolean
   name?: string
+}
+
+export type ComputedOptions<T> = ObservableOptions<T> & {
+  /**
+   * Cache this number of previous computations. When given the same dependency
+   * values as in the cache, cache value is used
+   */
+  cache?: number
+}
+
+type CachedResult<T> = {
+  value: T
+  dependencies: Map<Observable<any>, any>
 }
 
 export const notEqual = <T>(
@@ -63,8 +76,12 @@ export class Observable<T> {
 
   get() {
     const caller = Observable.context.at(-1)
-    if (caller) this._dependents.add(caller)
-    return this.peak()
+    const value = this.peak()
+    if (caller) {
+      this._dependents.add(caller)
+      caller.setCacheDependency(this)
+    }
+    return value
   }
 
   protected requestUpdate() {
@@ -94,6 +111,10 @@ export class Observable<T> {
     })
   }
 
+  addDependent(dependent: Computed<any>) {
+    this._dependents.add(dependent)
+  }
+
   protected _subscribers = new Set<Subscriber<T>>()
   protected _dependents = new Set<Computed<any>>()
   protected _lastBroadcastValue: T | undefined
@@ -106,7 +127,7 @@ export class Observable<T> {
 export class Computed<T> extends Observable<T> {
   constructor(
     protected getter: () => T,
-    protected _options: ObservableOptions<T> = {}
+    protected _options: ComputedOptions<T> = {}
   ) {
     super(undefined as T, _options)
   }
@@ -126,15 +147,34 @@ export class Computed<T> extends Observable<T> {
 
   peak = () => {
     if (this._stale) {
-      this.computeValue()
+      const cachedResult = this._cache.find((cache) => {
+        for (const [dependency, value] of cache.dependencies) {
+          if (dependency.peak() !== value) return false
+        }
+        return true
+      })
+      if (cachedResult) {
+        this._value = cachedResult.value
+        // Need to tell dependencies that they need to update us again if they change
+        cachedResult.dependencies.forEach((_, dependency) => {
+          dependency.addDependent(this)
+        })
+        this._stale = false
+      } else {
+        this.computeValue()
+      }
     }
     return super.peak()
   }
 
   get = () => {
     const caller = Observable.context.at(-1)
-    if (caller) this._dependents.add(caller)
-    return this.peak()
+    const value = this.peak()
+    if (caller) {
+      this._dependents.add(caller)
+      caller.setCacheDependency(this)
+    }
+    return value
   }
 
   checkUpdates = () => {
@@ -145,15 +185,34 @@ export class Computed<T> extends Observable<T> {
     this.checkDependents()
   }
 
+  setCacheDependency = (dependency: Observable<any>) => {
+    const lastCache = this._cache.at(-1)
+    if (lastCache) {
+      lastCache.dependencies.set(dependency, dependency.peak())
+    }
+  }
+
   protected computeValue() {
     Observable.context.push(this)
+    if (this._options.cache) {
+      if (this._cache.length >= this._options.cache) {
+        this._cache.shift()
+      }
+      this._cache.push({
+        value: this._value,
+        dependencies: new Map(),
+      })
+    }
     this._value = this.getter()
+    const lastCache = this._cache.at(-1)
+    if (lastCache) lastCache.value = this._value
     Observable.context.pop()
 
     this._stale = false
   }
 
   protected _stale = true
+  protected _cache = [] as CachedResult<T>[]
 }
 
 /**
