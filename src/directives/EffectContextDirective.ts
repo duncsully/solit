@@ -30,9 +30,7 @@ class EffectContextDirective extends AsyncDirective {
   }
 
   protected setWatchers() {
-    this.effects.forEach((effect) => {
-      this.cleanUps.push(watch(effect))
-    })
+    this.cleanUps = this.effects.map((effect) => watch(effect))
   }
 }
 
