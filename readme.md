@@ -2,17 +2,13 @@
 
 Solid, but with lit-html. "Components" are just functions that setup reactive lit-html templates. State and effects are managed with writable and computed signals that automatically track dependent signals. No JSX, no manual dependency tracking, no rules of hooks, no VDOM, no compiler.
 
-## Primitives
-
 Only five primitives are needed to build reactive components:
 
 - `state(initialValue)` - a writable signal that tracks its dependents
 - `computed(getter)` - a read-only signal that tracks its dependents and is lazily evaluated
-- `effect(callback)` - a callback that is run when its dependents change, optionally running a returned cleanup callback
-- `html` - a tagged template literal that renders a lit-html template
-- `render(template, container)` - a function that renders a lit-html template to a container
-
-## Example
+- `effect(callback)` - a callback that is run when its dependencies change, optionally running a returned cleanup callback
+- `html` - a template literal tagging function to build reactive lit-html templates for generating DOM
+- `render(template, container)` - a function that renders a template to a container
 
 ```ts
 import { state, computed, effect, html, render } from 'solit'
