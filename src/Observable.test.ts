@@ -1,4 +1,4 @@
-import { batch, Computed, computed, state, watch, Writable } from './state'
+import { batch, Computed, computed, state, watch, Writable } from './Observable'
 import { describe, it, expect, vi } from 'vitest'
 
 describe('Computed', () => {

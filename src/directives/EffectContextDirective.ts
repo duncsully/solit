@@ -1,6 +1,6 @@
 import { AsyncDirective, directive } from 'lit/async-directive.js'
 import { TemplateResult } from 'lit'
-import { Effect, watch } from '../state'
+import { Effect, watch } from '../Observable'
 
 /**
  * A stack of effects that are tied to the next context

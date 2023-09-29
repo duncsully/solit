@@ -1,6 +1,6 @@
 import { observe } from './ObserveDirective'
 import { AsyncDirective, PartType, directive } from 'lit/async-directive.js'
-import { batch, computed } from '../state'
+import { batch, computed } from '../Observable'
 
 class FunctionDirective extends AsyncDirective {
   constructor(partInfo: any) {

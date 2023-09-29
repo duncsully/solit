@@ -3,7 +3,7 @@ import { observe } from './directives/ObserveDirective'
 import { effect, effectContext } from './directives/EffectContextDirective'
 import { styleMap } from 'lit/directives/style-map.js'
 import { func } from './directives/FunctionDirective'
-import { Observable, Writable, computed, state } from './state'
+import { Observable, Writable, computed, state } from './Observable'
 
 /*
 How it works:
@@ -19,6 +19,19 @@ It can also call effects, which are just functions that run when the
 component is mounted and when any of its states change.
 */
 
+const partial = (strings: TemplateStringsArray, ...values: unknown[]) => {
+  const litValues = values.map((v) => {
+    if (v instanceof Observable) {
+      return observe(v)
+    }
+    if (v instanceof Function) {
+      return func(v)
+    }
+    return v
+  })
+  return litHtml(strings, ...litValues)
+}
+
 const html = (strings: TemplateStringsArray, ...values: unknown[]) => {
   const litValues = values.map((v) => {
     if (v instanceof Observable) {
@@ -33,7 +46,7 @@ const html = (strings: TemplateStringsArray, ...values: unknown[]) => {
 }
 
 export const Test = (label: string, start: number = 0) => {
-  const count = state(start)
+  const count = state(start, { name: 'count' })
 
   effect(() => {
     console.log('count is now', count.get())
@@ -41,14 +54,18 @@ export const Test = (label: string, start: number = 0) => {
     return () => console.log('cleaning up count effect')
   })
 
+  const doubled = computed(() => count.get() * 2, { name: 'doubled' })
+
+  effect(() => {
+    console.log('doubled is now', doubled.get())
+    return () => console.log('cleaning up doubled effect')
+  })
+
   const handleClick = () => {
     count.set(count.get() + 1)
   }
 
-  return html`
-    <button @click=${handleClick}>${label} ${count}</button>
-    ${Doubled(count)}
-  `
+  return html`<button @click=${handleClick}>${label} ${count}</button>`
 }
 
 const Doubled = (count: Writable<number>) => {
@@ -74,16 +91,47 @@ export const Shared = () => {
   </button>`
 }
 
+const MemoryLeakTest = () => {
+  const count = state(0)
+  console.log(count)
+  return html`<button
+      @click=${() => {
+        Array.from({ length: 1000 }).forEach(() => {
+          computed(() => count.get() * 2).get()
+        })
+      }}
+    >
+      Add a bunch of computeds
+    </button>
+    <button @click=${() => count.update((value) => value + 1)}>Add</button>`
+}
+
 export const App = () => {
-  const checked = state(false)
-  const toRender = computed(() => (checked.get() ? Test('Test') : nothing))
+  return html`${MemoryLeakTest()} ${TodoList()} `
+}
+
+export const TodoList = () => {
+  const todos = state([
+    { label: 'Test', checked: state(false) },
+    { label: 'Test 2', checked: state(true) },
+  ])
+
+  const addTodo = () => {
+    todos.update((before) => [
+      ...before,
+      { label: 'Test 3', checked: state(false) },
+    ])
+  }
+
+  const toRender = computed(() =>
+    todos.get().map((todo) => TodoItem(todo.label, todo.checked))
+  )
+
   return html`
-    <input
-      type="checkbox"
-      .checked=${checked}
-      @change=${() => checked.update((before) => !before)}
-    />
-    ${toRender} ${TodoItem('Test', state(true))}
+    <button @click=${addTodo}>Add Todo</button>
+    <div style=${styleMap({ display: 'flex', flexDirection: 'column' })}>
+      ${toRender}
+    </div>
   `
 }
 
@@ -113,8 +161,10 @@ export const TodoItem = (label: string, checked: Writable<boolean>) => {
 
 /*
 To do:
+- Move used cache entry to front of cache, pop old ones off the end
+- Cache option to count number of times used vs last time used?
 - Better logic for tying effect to component, not just the next template
-- State tests
 - Consider how router would work, especially prefetching
 - Post-render effects
+- Better efficiency in batch operations for multiple set operations that end up back to original value?
 */
