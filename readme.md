@@ -95,7 +95,3 @@ count.set(2) // Computed 3rd time -> 4, cached 0 -> 0, 1 -> 2, 2 -> 4
 count.set(1) // Read from cache 1 -> 2
 count.set(3) // Computed 4th time -> 8, cache size exceeded, removed 0 -> 0, cached 1 -> 2, 2 -> 4, 3 -> 6
 ```
-
-```
-
-```
