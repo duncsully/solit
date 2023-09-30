@@ -10,7 +10,7 @@ export type ComputedOptions<T> = ObservableOptions<T> & {
    * Cache this number of previous computations. When given the same dependency
    * values as in the cache, cache value is used
    */
-  cache?: number
+  cacheSize?: number
 }
 
 type CachedResult<T> = {
@@ -154,6 +154,10 @@ export class Computed<T> extends Observable<T> {
         return true
       })
       if (cachedResult) {
+        // Move to the front of the cache
+        this._cache.splice(this._cache.indexOf(cachedResult), 1)
+        this._cache.unshift(cachedResult)
+
         this._value = cachedResult.value
         // Need to tell dependencies that they need to update us again if they change
         cachedResult.dependencies.forEach((_, dependency) => {
@@ -186,7 +190,7 @@ export class Computed<T> extends Observable<T> {
   }
 
   setCacheDependency = (dependency: Observable<any>) => {
-    const lastCache = this._cache.at(-1)
+    const lastCache = this._cache[0]
     if (lastCache) {
       lastCache.dependencies.set(dependency, dependency.peak())
     }
@@ -194,17 +198,15 @@ export class Computed<T> extends Observable<T> {
 
   protected computeValue() {
     Observable.context.push(this)
-    if (this._options.cache) {
-      if (this._cache.length >= this._options.cache) {
-        this._cache.shift()
-      }
-      this._cache.push({
+    if (this._options.cacheSize) {
+      this._cache.unshift({
         value: this._value,
         dependencies: new Map(),
       })
+      this._cache.splice(this._options.cacheSize, Infinity)
     }
     this._value = this.getter()
-    const lastCache = this._cache.at(-1)
+    const lastCache = this._cache[0]
     if (lastCache) lastCache.value = this._value
     Observable.context.pop()
 

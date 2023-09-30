@@ -3,11 +3,11 @@ import { describe, it, expect, vi } from 'vitest'
 
 describe('Computed', () => {
   describe('constructor', () => {
-    describe('cache', () => {
-      it('caches previous results up to provided cache value', () => {
+    describe('cacheSize', () => {
+      it('caches previous results up to provided cacheSize value', () => {
         const number = new Writable(1)
         const getter = vi.fn(() => number.get() * 2)
-        const doubled = new Computed(getter, { cache: 2 })
+        const doubled = new Computed(getter, { cacheSize: 2 })
         // Cache with number = 1
         doubled.get()
         number.set(2)
@@ -43,6 +43,34 @@ describe('Computed', () => {
         number.set(3)
         expect(doubled.get()).toBe(6)
         expect(getter).not.toHaveBeenCalled()
+      })
+
+      it('moves cache hits to the front of the cache', () => {
+        const number = new Writable(1)
+        const getter = vi.fn(() => number.get() * 2)
+        const doubled = new Computed(getter, { cacheSize: 3 })
+        doubled.subscribe(vi.fn())
+        number.set(2)
+        number.set(3)
+        // Cache should now be filled
+
+        number.set(1) // Cache hit, move to the front
+
+        // Load two new values, remove two oldest
+        number.set(4)
+        number.set(5)
+
+        getter.mockClear()
+
+        // Should load from cache
+        number.set(1)
+        expect(doubled.get()).toBe(2)
+        expect(getter).not.toHaveBeenCalled()
+
+        // Should have been removed from cache
+        number.set(2)
+        expect(doubled.get()).toBe(4)
+        expect(getter).toHaveBeenCalled()
       })
     })
   })

@@ -84,7 +84,7 @@ array.update((current) => {
 }) // changed
 ```
 
-Computed signals by default only memoize their current dependency values (i.e. it will only compute once for the current set of dependencies). You can optionally choose to store past computations by passing an integer to the `cache` option to save that many computations.
+Computed signals by default only memoize their current dependency values (i.e. it will only compute once for the current set of dependencies). You can optionally choose to store past computations by passing an integer to the `cacheSize` option to save that many computations. When a value is read from cache, it is moved up to the front of the cache so that it is not removed until it is the oldest value in the cache.
 
 ```ts
 const count = state(0)
