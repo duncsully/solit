@@ -72,6 +72,17 @@ describe('Computed', () => {
         expect(doubled.get()).toBe(4)
         expect(getter).toHaveBeenCalled()
       })
+
+      it('prevents memoization when set to 0', () => {
+        const number = new Writable(1)
+        const getter = vi.fn(() => number.get() * 2)
+        const doubled = new Computed(getter, { cacheSize: 0 })
+        doubled.get()
+        doubled.get()
+        doubled.get()
+
+        expect(getter).toHaveBeenCalledTimes(3)
+      })
     })
   })
 

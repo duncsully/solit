@@ -60,9 +60,11 @@ export class Observable<T> {
   }
 
   subscribe(subscriber: Subscriber<T>) {
+    const unsubscribe = this.observe(subscriber)
+
     subscriber(this.peak())
 
-    return this.observe(subscriber)
+    return unsubscribe
   }
 
   unsubscribe(subscriber: Subscriber<T>) {
@@ -79,7 +81,7 @@ export class Observable<T> {
     const value = this.peak()
     if (caller) {
       this._dependents.add(caller)
-      caller.setCacheDependency(this)
+      caller.setCacheDependency(this, value)
     }
     return value
   }
@@ -96,7 +98,6 @@ export class Observable<T> {
     const { hasChanged = notEqual } = this._options
     if (hasChanged(this._lastBroadcastValue, this.peak())) {
       this._subscribers.forEach((subscriber) => subscriber(this._value))
-      this._lastBroadcastValue = this._value
     }
   }
 
@@ -125,95 +126,73 @@ export class Observable<T> {
  * when they change if there are subscribers
  */
 export class Computed<T> extends Observable<T> {
-  constructor(
-    protected getter: () => T,
-    protected _options: ComputedOptions<T> = {}
-  ) {
+  constructor(protected getter: () => T, options: ComputedOptions<T> = {}) {
+    const { cacheSize = 1, ..._options } = options
     super(undefined as T, _options)
+    this._cacheSize = cacheSize
   }
 
   observe = (subscriber: Subscriber<T>) => {
-    // If the value is stale, there might be new untracked dependencies
-    if (this._stale) {
+    // Need to track dependencies now that we have a subscriber
+    if (!this._subscribers.size) {
       this.computeValue()
     }
     return super.observe(subscriber)
   }
 
-  subscribe = (subscriber: Subscriber<T>) => {
-    subscriber(this.peak())
-    return this.observe(subscriber)
-  }
-
   peak = () => {
-    if (this._stale) {
-      const cachedResult = this._cache.find((cache) => {
-        for (const [dependency, value] of cache.dependencies) {
-          if (dependency.peak() !== value) return false
-        }
-        return true
-      })
-      if (cachedResult) {
-        // Move to the front of the cache
-        this._cache.splice(this._cache.indexOf(cachedResult), 1)
-        this._cache.unshift(cachedResult)
-
-        this._value = cachedResult.value
-        // Need to tell dependencies that they need to update us again if they change
-        cachedResult.dependencies.forEach((_, dependency) => {
-          dependency.addDependent(this)
-        })
-        this._stale = false
-      } else {
-        this.computeValue()
+    const cachedResult = this._cache.find((cache) => {
+      for (const [dependency, value] of cache.dependencies) {
+        if (dependency.peak() !== value) return false
       }
+      return true
+    })
+    if (cachedResult) {
+      // Move to the front of the cache
+      this._cache.splice(this._cache.indexOf(cachedResult), 1)
+      this._cache.unshift(cachedResult)
+
+      this._value = cachedResult.value
+      // Need to tell dependencies that they need to update us again if they change
+      cachedResult.dependencies.forEach((_, dependency) => {
+        dependency.addDependent(this)
+      })
+    } else {
+      this.computeValue()
     }
     return super.peak()
   }
 
-  get = () => {
-    const caller = Observable.context.at(-1)
-    const value = this.peak()
-    if (caller) {
-      this._dependents.add(caller)
-      caller.setCacheDependency(this)
-    }
-    return value
-  }
-
   checkUpdates = () => {
-    this._stale = true
     if (this._subscribers.size) {
       this.requestUpdate()
     }
     this.checkDependents()
   }
 
-  setCacheDependency = (dependency: Observable<any>) => {
+  setCacheDependency = (dependency: Observable<any>, value: any) => {
     const lastCache = this._cache[0]
     if (lastCache) {
-      lastCache.dependencies.set(dependency, dependency.peak())
+      lastCache.dependencies.set(dependency, value)
     }
   }
 
   protected computeValue() {
     Observable.context.push(this)
-    if (this._options.cacheSize) {
+    if (this._cacheSize) {
       this._cache.unshift({
         value: this._value,
         dependencies: new Map(),
       })
-      this._cache.splice(this._options.cacheSize, Infinity)
+      this._cache.splice(this._cacheSize, Infinity)
     }
     this._value = this.getter()
     const lastCache = this._cache[0]
     if (lastCache) lastCache.value = this._value
     Observable.context.pop()
-
-    this._stale = false
   }
 
-  protected _stale = true
+  protected _cacheSize = 1
   protected _cache = [] as CachedResult<T>[]
 }
 
