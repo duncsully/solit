@@ -24,6 +24,32 @@ export const notEqual = <T>(
 ) => !Object.is(firstValue, secondValue)
 
 /**
+ * How it works
+ *
+ * - Computed observables track what observables they depend on via Observable.get()
+ *
+ * - Writables are what get directly interacted with. Computed observables can only
+ *   change when a writable changes.
+ *
+ * - A computed observable only needs to be computed if its value is actually read,
+ *   either directly or if there are subscribers and a dependency changes, informing
+ *   it that it might need to recompute.
+ *
+ * - But if a computed observable has no subscribers, it doesn't need to be recomputed
+ *   when its dependencies change, so its dependencies can stop tracking it until it
+ *   gets manually read or subscribed to again, and it can be garbage collected otherwise.
+ *
+ * - A computed can also track what its dependencies' values are per computation, so if
+ *   it gets read again with the same dependency values, it can use the cached value.
+ *   By default the cache size is 1, so it only caches the last computation.
+ *
+ * - Writable sets can be batched, so that if multiple writables are changed, subscribers
+ *   are only updated once after all the writes have happened, and only for what
+ *   Observables have actually changed. This means that a computed value may need to
+ *   be recomputed, but its value may not have changed, so it won't need to update subscribers
+ */
+
+/**
  * Core observable class that allows subscribing to changes,
  * reading values, and responding to changes
  */
@@ -132,10 +158,6 @@ export class Computed<T> extends Observable<T> {
       this._cache.unshift(cachedResult)
 
       this._value = cachedResult.value
-      // Need to tell dependencies that they need to update us again if they change
-      cachedResult.dependencies.forEach((_, dependency) => {
-        dependency.addDependent(this)
-      })
     } else {
       this.computeValue()
     }

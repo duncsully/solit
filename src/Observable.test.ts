@@ -123,6 +123,18 @@ describe('Computed', () => {
         expect(subscriber2).toHaveBeenCalledWith(4)
       })
 
+      it("calls nested computed subscribers if a dependent's dependencies change", () => {
+        const number = new Writable(1)
+        const doubled = new Computed(() => number.get() * 2)
+        const quadrupled = new Computed(() => doubled.get() * 2)
+        const subscriber = vi.fn()
+        quadrupled.observe(subscriber)
+
+        number.set(2)
+
+        expect(subscriber).toHaveBeenCalledWith(8)
+      })
+
       it('does not call callback immediately', () => {
         const number = new Writable(1)
         const doubled = new Computed(() => number.get() * 2)
