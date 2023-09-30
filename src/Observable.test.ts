@@ -84,6 +84,31 @@ describe('Computed', () => {
         expect(getter).toHaveBeenCalledTimes(3)
       })
     })
+
+    // TODO: Not sure if this will actually pass when it can run
+    describe.skipIf(!globalThis.requestIdleCallback)('computeOnIdle', () => {
+      it('computes value on idle callback', async () => {
+        const number = new Writable(1)
+        const getter = vi.fn(() => number.get() * 2)
+        const doubled = new Computed(getter, { computeOnIdle: true })
+
+        await Promise.resolve()
+
+        expect(getter).toHaveBeenCalled()
+
+        getter.mockClear()
+
+        expect(doubled.get()).toBe(2)
+        expect(getter).not.toHaveBeenCalled()
+
+        number.set(2)
+
+        await Promise.resolve()
+
+        expect(getter).toHaveBeenCalled()
+        expect(doubled.get()).toBe(4)
+      })
+    })
   })
 
   describe('API', () => {

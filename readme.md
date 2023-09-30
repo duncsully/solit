@@ -69,6 +69,8 @@ Templates are built using a slightly enhanced version of lit-html. The `html` te
 
 ## Advanced
 
+#### Comparing changes
+
 Signals are considered changed using Object.is by default. You can override this behavior by passing a custom `hasChanged` option.
 
 ```ts
@@ -84,6 +86,8 @@ array.update((current) => {
 }) // changed
 ```
 
+#### Memoization
+
 Computed signals by default only memoize the value for the most recent dependency values (i.e. it will only compute once for the current set of dependencies). That means that if the dependencies change, even to a set of values that were previously computed, the computed signal will need to recompute. You can optionally choose to store more than one previous computations by passing an integer larger than one to the `cacheSize` option to save that many computations. When a value is read from cache, it is moved up to the front of the cache so that it is not removed until it is the oldest value in the cache.
 
 Alternatively, if you want to prevent memoization and always recompute values, you can pass `cacheSize: 0`.
@@ -97,3 +101,9 @@ count.set(2) // Computed 3rd time -> 4, cached 0 -> 0, 1 -> 2, 2 -> 4
 count.set(1) // Read from cache 1 -> 2
 count.set(3) // Computed 4th time -> 8, cache size exceeded, removed 0 -> 0, cached 1 -> 2, 2 -> 4, 3 -> 6
 ```
+
+#### Computing values on idle
+
+Computed signals are normally evaluated lazily, computing only when their value is requested. This avoids wasting work done for values that won't be used immediately, but in rare cases (e.g. when a computed value depends on an API request) it can worsen the experience when an expensive computation is suddenly demanded. You can optionally choose to compute values on idle by passing `computeOnIdle: true` to the options. This will cause the computed signal to compute its value on idle both when it is created and when any of its dependencies change. This means the latest value will be immediately available when requested.
+
+**Note:** This requires having `cacheSize` set to at least 1.

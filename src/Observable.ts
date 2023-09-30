@@ -5,19 +5,6 @@ export type ObservableOptions<T> = {
   name?: string
 }
 
-export type ComputedOptions<T> = ObservableOptions<T> & {
-  /**
-   * Cache this number of previous computations. When given the same dependency
-   * values as in the cache, cache value is used
-   */
-  cacheSize?: number
-}
-
-type CachedResult<T> = {
-  value: T
-  dependencies: Map<Observable<any>, any>
-}
-
 export const notEqual = <T>(
   firstValue: T | undefined,
   secondValue: T | undefined
@@ -123,15 +110,37 @@ export class Observable<T> {
   protected _selfRef = new WeakRef(this)
 }
 
+type CachedResult<T> = {
+  value: T
+  dependencies: Map<Observable<any>, any>
+}
+
+export type ComputedOptions<T> = ObservableOptions<T> & {
+  /**
+   * Cache this number of previous computations. When given the same dependency
+   * values as in the cache, cache value is used
+   */
+  cacheSize?: number
+  /**
+   * If true, will compute value on idle callback when dependencies change while
+   * there are no subscribers
+   */
+  computeOnIdle?: boolean
+}
+
 /**
  * A computed observable that tracks dependencies and updates lazily
  * when they change if there are subscribers
  */
 export class Computed<T> extends Observable<T> {
   constructor(protected getter: () => T, options: ComputedOptions<T> = {}) {
-    const { cacheSize = 1, ..._options } = options
+    const { cacheSize = 1, computeOnIdle = false, ..._options } = options
     super(undefined as T, _options)
     this._cacheSize = cacheSize
+    this._computeOnIdle = computeOnIdle && !!globalThis.requestIdleCallback
+    if (this._computeOnIdle) {
+      this.requestIdleComputed()
+    }
   }
 
   observe = (subscriber: Subscriber<T>) => {
@@ -144,6 +153,10 @@ export class Computed<T> extends Observable<T> {
   }
 
   peak = () => {
+    if (this._idleCallbackHandle) {
+      cancelIdleCallback(this._idleCallbackHandle)
+      this._idleCallbackHandle = undefined
+    }
     const cachedResult = this._cache.find((cache) => {
       for (const [dependency, value] of cache.dependencies) {
         if (dependency.peak() !== value) return false
@@ -169,6 +182,13 @@ export class Computed<T> extends Observable<T> {
     }
   }
 
+  updateSubscribers() {
+    super.updateSubscribers()
+    if (!this._subscribers.size && this._computeOnIdle) {
+      this.requestIdleComputed()
+    }
+  }
+
   protected computeValue() {
     Observable.context.push(this)
     if (this._cacheSize) {
@@ -184,8 +204,20 @@ export class Computed<T> extends Observable<T> {
     Observable.context.pop()
   }
 
+  protected requestIdleComputed() {
+    if (this._idleCallbackHandle) {
+      cancelIdleCallback(this._idleCallbackHandle)
+    }
+    this._idleCallbackHandle = requestIdleCallback(() => {
+      this._idleCallbackHandle = undefined
+      this.computeValue()
+    })
+  }
+
   protected _cacheSize = 1
   protected _cache = [] as CachedResult<T>[]
+  protected _computeOnIdle = false
+  protected _idleCallbackHandle: number | undefined
 }
 
 /**
@@ -246,7 +278,7 @@ export class Writable<T> extends Observable<T> {
 export const state = <T>(value: T, options?: ObservableOptions<T>) =>
   new Writable(value, options)
 
-export const computed = <T>(getter: () => T, options?: ObservableOptions<T>) =>
+export const computed = <T>(getter: () => T, options?: ComputedOptions<T>) =>
   new Computed(getter, options)
 
 export const batch = Writable.batch
