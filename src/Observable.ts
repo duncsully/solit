@@ -29,25 +29,6 @@ export const notEqual = <T>(
  */
 export class Observable<T> {
   static context: Computed<any>[] = []
-  static batchedUpdateChecks: null | Set<Observable<any>>
-  /**
-   * All subscription updates will be deferred until after passed action has run,
-   * preventing a subscriber from being updated multiple times for multiple
-   * writable observable write operations
-   */
-  static batch(action: () => void) {
-    // If there is already a set, this is a nested call, don't flush until we
-    // return to the top level
-    const flush = !Observable.batchedUpdateChecks
-    Observable.batchedUpdateChecks ??= new Set()
-    action()
-    if (flush) {
-      Observable.batchedUpdateChecks?.forEach((observable) => {
-        observable.updateSubscribers()
-      })
-      Observable.batchedUpdateChecks = null
-    }
-  }
 
   constructor(
     protected _value: T,
@@ -88,24 +69,20 @@ export class Observable<T> {
     return value
   }
 
-  protected requestUpdate() {
-    if (Observable.batchedUpdateChecks) {
-      Observable.batchedUpdateChecks.add(this)
-    } else {
-      this.updateSubscribers()
-    }
-  }
-
   protected updateSubscribers() {
     const { hasChanged = notEqual } = this._options
-    if (hasChanged(this._lastBroadcastValue, this.peak())) {
+    if (
+      this._subscribers.size &&
+      hasChanged(this._lastBroadcastValue, this.peak())
+    ) {
       this._subscribers.forEach((subscriber) => subscriber(this._value))
     }
+    this.checkDependents()
   }
 
   protected checkDependents() {
     this._dependents.forEach((dependent) => {
-      dependent.checkUpdates()
+      dependent.updateSubscribers()
       // If the dependent has no subscribers, it can be garbage collected
       // It'll be readded if .gets() this observable again
       if (!dependent._subscribers.size) {
@@ -165,13 +142,6 @@ export class Computed<T> extends Observable<T> {
     return super.peak()
   }
 
-  checkUpdates = () => {
-    if (this._subscribers.size) {
-      this.requestUpdate()
-    }
-    this.checkDependents()
-  }
-
   setCacheDependency = (dependency: Observable<any>, value: any) => {
     const lastCache = this._cache[0]
     if (lastCache) {
@@ -203,6 +173,25 @@ export class Computed<T> extends Observable<T> {
  * tracked by Computed observables
  */
 export class Writable<T> extends Observable<T> {
+  static batchedUpdateChecks: null | Set<Writable<any>>
+  /**
+   * All subscription updates will be deferred until after passed action has run,
+   * preventing a subscriber from being updated multiple times for multiple
+   * writable observable write operations
+   */
+  static batch(action: () => void) {
+    // If there is already a set, this is a nested call, don't flush until we
+    // return to the top level
+    const flush = !Writable.batchedUpdateChecks
+    Writable.batchedUpdateChecks ??= new Set()
+    action()
+    if (flush) {
+      Writable.batchedUpdateChecks?.forEach((observable) => {
+        observable.updateSubscribers()
+      })
+      Writable.batchedUpdateChecks = null
+    }
+  }
   constructor(protected _initialValue: T, _options: ObservableOptions<T> = {}) {
     super(_initialValue, _options)
   }
@@ -214,7 +203,6 @@ export class Writable<T> extends Observable<T> {
     if (hasChanged(prevValue, value)) {
       this._value = value
       this.requestUpdate()
-      this.checkDependents()
     }
   }
 
@@ -225,6 +213,14 @@ export class Writable<T> extends Observable<T> {
   reset = () => {
     this.set(this._initialValue)
   }
+
+  protected requestUpdate() {
+    if (Writable.batchedUpdateChecks) {
+      Writable.batchedUpdateChecks.add(this)
+    } else {
+      this.updateSubscribers()
+    }
+  }
 }
 
 export const state = <T>(value: T, options?: ObservableOptions<T>) =>
@@ -233,7 +229,7 @@ export const state = <T>(value: T, options?: ObservableOptions<T>) =>
 export const computed = <T>(getter: () => T, options?: ObservableOptions<T>) =>
   new Computed(getter, options)
 
-export const batch = Observable.batch
+export const batch = Writable.batch
 
 export type Effect = () => void | (() => void)
 

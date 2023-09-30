@@ -1,12 +1,4 @@
-import {
-  batch,
-  Computed,
-  computed,
-  Observable,
-  state,
-  watch,
-  Writable,
-} from './Observable'
+import { batch, Computed, computed, state, watch, Writable } from './Observable'
 import { describe, it, expect, vi } from 'vitest'
 
 describe('Computed', () => {
@@ -431,108 +423,108 @@ describe('Writable', () => {
       expect(subscriber2).toHaveBeenCalledWith(2)
     })
   })
+})
 
-  describe('batch', () => {
-    it('defers subscription updates until after all actions (nested included) finish', () => {
-      const number = new Writable(1)
-      const string = new Writable('hi')
-      const subscriber = vi.fn()
-      number.observe(subscriber)
-      string.observe(subscriber)
+describe('batch', () => {
+  it('defers subscription updates until after all actions (nested included) finish', () => {
+    const number = new Writable(1)
+    const string = new Writable('hi')
+    const subscriber = vi.fn()
+    number.observe(subscriber)
+    string.observe(subscriber)
 
-      Computed.batch(() => {
-        Computed.batch(() => {
-          number.set(2)
-          expect(subscriber).not.toHaveBeenCalled()
-        })
-        expect(subscriber).not.toHaveBeenCalled()
-        string.set('yo')
-      })
-
-      expect(subscriber).toHaveBeenCalledTimes(2)
-    })
-
-    it('does not recompute Computeds if dependencies not updated', () => {
-      const width = new Writable(1)
-      const length = new Writable(10)
-      const getterCheck = vi.fn(() => width.get() * length.get())
-      const area = new Computed(getterCheck)
-      area.get()
-      getterCheck.mockClear()
-
+    batch(() => {
       batch(() => {
-        width.set(1)
-        length.set(10)
-      })
-
-      area.get()
-
-      expect(getterCheck).not.toHaveBeenCalled()
-    })
-
-    it('will not update writable subscribers if its value after all operations has not changed', () => {
-      const number = new Writable(1)
-      const subscriber = vi.fn()
-      number.observe(subscriber)
-
-      Observable.batch(() => {
         number.set(2)
-        number.set(3)
-        number.set(1)
+        expect(subscriber).not.toHaveBeenCalled()
       })
-
       expect(subscriber).not.toHaveBeenCalled()
+      string.set('yo')
     })
 
-    it("will not update dependents' subscribers if its value after all operations has not changed", () => {
-      const width = new Writable(1)
-      const height = new Writable(10)
-      const area = new Computed(() => width.get() * height.get())
-      const subscriber = vi.fn()
-      area.subscribe(subscriber)
-      subscriber.mockClear()
+    expect(subscriber).toHaveBeenCalledTimes(2)
+  })
 
-      Computed.batch(() => {
-        width.set(2)
-        height.set(5)
-      })
+  it('does not recompute Computeds if dependencies not updated', () => {
+    const width = new Writable(1)
+    const length = new Writable(10)
+    const getterCheck = vi.fn(() => width.get() * length.get())
+    const area = new Computed(getterCheck)
+    area.get()
+    getterCheck.mockClear()
 
-      expect(subscriber).not.toHaveBeenCalled()
+    batch(() => {
+      width.set(1)
+      length.set(10)
     })
 
-    it('works if Computed dependent is read during the same action any of its dependencies are updated in', () => {
-      const width = new Writable(1, { name: 'width' })
-      const length = new Writable(10, { name: 'length' })
-      const area = new Computed(() => width.get() * length.get(), {
-        name: 'area',
-      })
-      const perimeter = new Computed(() => width.get() * 2 + length.get() * 2, {
-        name: 'perimeter',
-      })
-      const height = new Writable(2, { name: 'height' })
-      const getterCheck = vi.fn(() => area.get() * height.get())
-      const volume = new Computed(getterCheck, { name: 'volume' })
-      volume.subscribe(vi.fn())
+    area.get()
+
+    expect(getterCheck).not.toHaveBeenCalled()
+  })
+
+  it('will not update writable subscribers if its value after all operations has not changed', () => {
+    const number = new Writable(1)
+    const subscriber = vi.fn()
+    number.observe(subscriber)
+
+    batch(() => {
+      number.set(2)
+      number.set(3)
+      number.set(1)
+    })
+
+    expect(subscriber).not.toHaveBeenCalled()
+  })
+
+  it("will not update dependents' subscribers if its value after all operations has not changed", () => {
+    const width = new Writable(1)
+    const height = new Writable(10)
+    const area = new Computed(() => width.get() * height.get())
+    const subscriber = vi.fn()
+    area.subscribe(subscriber)
+    subscriber.mockClear()
+
+    batch(() => {
+      width.set(2)
+      height.set(5)
+    })
+
+    expect(subscriber).not.toHaveBeenCalled()
+  })
+
+  it('works if Computed dependent is read during the same action any of its dependencies are updated in', () => {
+    const width = new Writable(1, { name: 'width' })
+    const length = new Writable(10, { name: 'length' })
+    const area = new Computed(() => width.get() * length.get(), {
+      name: 'area',
+    })
+    const perimeter = new Computed(() => width.get() * 2 + length.get() * 2, {
+      name: 'perimeter',
+    })
+    const height = new Writable(2, { name: 'height' })
+    const getterCheck = vi.fn(() => area.get() * height.get())
+    const volume = new Computed(getterCheck, { name: 'volume' })
+    volume.subscribe(vi.fn())
+    getterCheck.mockClear()
+    const perimeterSubscriber = vi.fn()
+    perimeter.subscribe(perimeterSubscriber)
+    perimeterSubscriber.mockClear()
+
+    batch(() => {
+      width.set(2)
+      // Should not be recomputed yet
+      expect(getterCheck).not.toHaveBeenCalled()
+      // Lazily recomputed
+      expect(volume.get()).toBe(40)
       getterCheck.mockClear()
-      const perimeterSubscriber = vi.fn()
-      perimeter.subscribe(perimeterSubscriber)
-      perimeterSubscriber.mockClear()
-
-      batch(() => {
-        width.set(2)
-        // Should not be recomputed yet
-        expect(getterCheck).not.toHaveBeenCalled()
-        // Lazily recomputed
-        expect(volume.get()).toBe(40)
-        getterCheck.mockClear()
-        volume.get()
-        // No need to recompute
-        expect(getterCheck).not.toHaveBeenCalled()
-        length.set(9)
-      })
-
-      expect(perimeterSubscriber).not.toHaveBeenCalled()
+      volume.get()
+      // No need to recompute
+      expect(getterCheck).not.toHaveBeenCalled()
+      length.set(9)
     })
+
+    expect(perimeterSubscriber).not.toHaveBeenCalled()
   })
 })
 
