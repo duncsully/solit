@@ -89,7 +89,13 @@ export class Observable<T> {
     const caller = Observable.context.at(-1)
     const value = this.peak()
     if (caller) {
-      this._dependents.add(caller)
+      // Only need to track this dependency if somewhere up the stack one
+      // of the observables has subscribers
+      if (
+        Observable.context.some((observable) => observable._subscribers.size)
+      ) {
+        this._dependents.add(caller)
+      }
       caller.setCacheDependency(this, value)
     }
     return value
@@ -103,18 +109,17 @@ export class Observable<T> {
     ) {
       this._subscribers.forEach((subscriber) => subscriber(this._value))
     }
-    this.checkDependents()
-  }
-
-  protected checkDependents() {
+    let dependentsHaveSubscribers = false
     this._dependents.forEach((dependent) => {
-      dependent.updateSubscribers()
-      // If the dependent has no subscribers, it can be garbage collected
+      const dependentTreeHasSubscribers = dependent.updateSubscribers()
+      dependentsHaveSubscribers ||= dependentTreeHasSubscribers
+      // If the dependent tree has no subscribers, immediate dependent can be garbage collected
       // It'll be readded if .gets() this observable again
-      if (!dependent._subscribers.size) {
+      if (!dependentTreeHasSubscribers) {
         this._dependents.delete(dependent)
       }
     })
+    return dependentsHaveSubscribers || !!this._subscribers.size
   }
 
   addDependent(dependent: Computed<any>) {
@@ -138,11 +143,12 @@ export class Computed<T> extends Observable<T> {
   }
 
   observe = (subscriber: Subscriber<T>) => {
+    const unsubscribe = super.observe(subscriber)
     // Need to track dependencies now that we have a subscriber
-    if (!this._subscribers.size) {
+    if (this._subscribers.size === 1) {
       this.computeValue()
     }
-    return super.observe(subscriber)
+    return unsubscribe
   }
 
   peak = () => {
@@ -266,7 +272,7 @@ export const watch = (callback: Effect, name: string = 'watcher') => {
     },
     { name }
   )
-  const unsubscribe = watcher.observe(() => {})
+  const unsubscribe = watcher.subscribe(() => {})
   return () => {
     unsubscribe()
     cleanup?.()

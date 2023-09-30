@@ -133,6 +133,10 @@ describe('Computed', () => {
         number.set(2)
 
         expect(subscriber).toHaveBeenCalledWith(8)
+
+        number.set(3)
+
+        expect(subscriber).toHaveBeenCalledWith(12)
       })
 
       it('does not call callback immediately', () => {
