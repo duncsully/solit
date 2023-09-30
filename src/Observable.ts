@@ -35,10 +35,6 @@ export const notEqual = <T>(
  *   either directly or if there are subscribers and a dependency changes, informing
  *   it that it might need to recompute.
  *
- * - But if a computed observable has no subscribers, it doesn't need to be recomputed
- *   when its dependencies change, so its dependencies can stop tracking it until it
- *   gets manually read or subscribed to again, and it can be garbage collected otherwise.
- *
  * - A computed can also track what its dependencies' values are per computation, so if
  *   it gets read again with the same dependency values, it can use the cached value.
  *   By default the cache size is 1, so it only caches the last computation.
@@ -91,11 +87,8 @@ export class Observable<T> {
     if (caller) {
       // Only need to track this dependency if somewhere up the stack one
       // of the observables has subscribers
-      if (
-        Observable.context.some((observable) => observable._subscribers.size)
-      ) {
-        this._dependents.add(caller)
-      }
+
+      this._dependents.add(caller._selfRef)
       caller.setCacheDependency(this, value)
     }
     return value
@@ -109,26 +102,25 @@ export class Observable<T> {
     ) {
       this._subscribers.forEach((subscriber) => subscriber(this._value))
     }
-    let dependentsHaveSubscribers = false
-    this._dependents.forEach((dependent) => {
-      const dependentTreeHasSubscribers = dependent.updateSubscribers()
-      dependentsHaveSubscribers ||= dependentTreeHasSubscribers
-      // If the dependent tree has no subscribers, immediate dependent can be garbage collected
-      // It'll be readded if .gets() this observable again
-      if (!dependentTreeHasSubscribers) {
-        this._dependents.delete(dependent)
+
+    this._dependents.forEach((dependentRef) => {
+      const dependent = dependentRef.deref()
+      if (dependent) {
+        dependent.updateSubscribers()
+      } else {
+        this._dependents.delete(dependentRef)
       }
     })
-    return dependentsHaveSubscribers || !!this._subscribers.size
   }
 
-  addDependent(dependent: Computed<any>) {
-    this._dependents.add(dependent)
+  addDependent(dependentRef: WeakRef<Computed<any>>) {
+    this._dependents.add(dependentRef)
   }
 
   protected _subscribers = new Set<Subscriber<T>>()
-  protected _dependents = new Set<Computed<any>>()
+  protected _dependents = new Set<WeakRef<Computed<any>>>()
   protected _lastBroadcastValue: T | undefined
+  protected _selfRef = new WeakRef(this)
 }
 
 /**
