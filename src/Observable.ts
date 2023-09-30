@@ -52,7 +52,9 @@ export class Observable<T> {
   constructor(
     protected _value: T,
     protected _options: ObservableOptions<T> = {}
-  ) {}
+  ) {
+    this._lastBroadcastValue = _value
+  }
 
   observe(subscriber: Subscriber<T>) {
     this._subscribers.add(subscriber)

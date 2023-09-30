@@ -1,4 +1,12 @@
-import { batch, Computed, computed, state, watch, Writable } from './Observable'
+import {
+  batch,
+  Computed,
+  computed,
+  Observable,
+  state,
+  watch,
+  Writable,
+} from './Observable'
 import { describe, it, expect, vi } from 'vitest'
 
 describe('Computed', () => {
@@ -460,6 +468,20 @@ describe('Writable', () => {
       area.get()
 
       expect(getterCheck).not.toHaveBeenCalled()
+    })
+
+    it('will not update writable subscribers if its value after all operations has not changed', () => {
+      const number = new Writable(1)
+      const subscriber = vi.fn()
+      number.observe(subscriber)
+
+      Observable.batch(() => {
+        number.set(2)
+        number.set(3)
+        number.set(1)
+      })
+
+      expect(subscriber).not.toHaveBeenCalled()
     })
 
     it("will not update dependents' subscribers if its value after all operations has not changed", () => {
