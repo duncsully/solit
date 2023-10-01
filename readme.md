@@ -29,7 +29,7 @@ const Counter = () => {
 
   return html`
     <div>
-      <button onclick=${increment}>Increment</button>
+      <button @click=${increment}>Increment</button>
       <!-- Signals can be passed directly in -->
       <p>Count: ${count}</p>
       <p>Double: ${double}</p>
