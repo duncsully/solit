@@ -79,11 +79,28 @@ const array = state([1], {
 })
 
 array.set([1]) // no change
+```
 
-array.update((current) => {
-  current.push(2)
-  return current
-}) // changed
+#### Mutating
+
+You can use the `mutate` method to request an update after running the callback.
+
+**Note:** This will require configuring the `hasChanged` option since arrays and objects will still have the same reference after mutation.
+
+```ts
+let prev = []
+const array = state([1], {
+  hasChanged: (_, next) => {
+    const changed =
+      prev.length !== next.length || prev.some((value, i) => value !== next[i])
+    prev = [...next]
+    return changed
+  },
+})
+
+array.mutate((current) => current.push(2)) // will update subscribers
+
+array.mutate((current) => current.sort()) // will request update but has not changed, so will not update subscribers
 ```
 
 #### Memoization

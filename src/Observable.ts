@@ -262,6 +262,11 @@ export class Writable<T> extends Observable<T> {
     this.set(updater(this._value))
   }
 
+  mutate = (mutator: (currentValue: T) => void) => {
+    mutator(this._value)
+    this.requestUpdate()
+  }
+
   reset = () => {
     this.set(this._initialValue)
   }
