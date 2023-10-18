@@ -1,9 +1,9 @@
-import { TemplateResult, html as litHtml, nothing } from 'lit'
-import { observe } from './directives/ObserveDirective'
-import { effect, effectContext } from './directives/EffectContextDirective'
+import { effect } from './directives/EffectContextDirective'
 import { styleMap } from 'lit/directives/style-map.js'
-import { func } from './directives/FunctionDirective'
-import { Observable, Writable, computed, state } from './Observable'
+import { Writable, computed, state } from './Observable'
+import { repeat } from 'lit/directives/repeat.js'
+import { html } from './html'
+import { render } from 'lit'
 
 /*
 How it works:
@@ -19,7 +19,7 @@ It can also call effects, which are just functions that run when the
 component is mounted and when any of its states change.
 */
 
-const partial = (strings: TemplateStringsArray, ...values: unknown[]) => {
+/* const partial = (strings: TemplateStringsArray, ...values: unknown[]) => {
   const litValues = values.map((v) => {
     if (v instanceof Observable) {
       return observe(v)
@@ -30,20 +30,7 @@ const partial = (strings: TemplateStringsArray, ...values: unknown[]) => {
     return v
   })
   return litHtml(strings, ...litValues)
-}
-
-const html = (strings: TemplateStringsArray, ...values: unknown[]) => {
-  const litValues = values.map((v) => {
-    if (v instanceof Observable) {
-      return observe(v)
-    }
-    if (v instanceof Function) {
-      return func(v)
-    }
-    return v
-  })
-  return effectContext(litHtml(strings, ...litValues)) as TemplateResult
-}
+} */
 
 export const Test = (label: string, start: number = 0) => {
   const count = state(start, { name: 'count' })
@@ -68,7 +55,7 @@ export const Test = (label: string, start: number = 0) => {
   return html`<button @click=${handleClick}>${label} ${count}</button>`
 }
 
-const Doubled = (count: Writable<number>) => {
+/* const Doubled = (count: Writable<number>) => {
   const doubled = computed(() => count.get() * 2)
 
   effect(() => {
@@ -77,7 +64,7 @@ const Doubled = (count: Writable<number>) => {
   })
 
   return html`<div>Doubled: ${doubled}</div>`
-}
+} */
 
 const sharedState = state(0)
 
@@ -106,65 +93,94 @@ const MemoryLeakTest = () => {
     <button @click=${() => count.update((value) => value + 1)}>Add</button>`
 }
 
-export const App = () => {
-  return html`${MemoryLeakTest()} ${TodoList()} `
-}
+const todos = state(
+  {} as { label: Writable<string>; checked: Writable<boolean>; id: number }[]
+)
 
 export const TodoList = () => {
-  const todos = state([
-    { label: 'Test', checked: state(false) },
-    { label: 'Test 2', checked: state(true) },
-  ])
-
   const addTodo = () => {
-    todos.update((before) => [
-      ...before,
-      { label: 'Test 3', checked: state(false) },
-    ])
+    todos.update((before) => {
+      const id = Date.now()
+      return {
+        ...before,
+        [id]: {
+          label: state(''),
+          checked: state(false),
+          id,
+        },
+      }
+    })
   }
 
-  const toRender = computed(() =>
-    todos.get().map((todo) => TodoItem(todo.label, todo.checked))
+  const toRender = computed(
+    () =>
+      html`${repeat(
+        Object.values(todos.get()),
+        (todo) => todo.id,
+        (todo) => TodoItem(todo.id)
+      )}`
   )
 
   return html`
-    <button @click=${addTodo}>Add Todo</button>
     <div style=${styleMap({ display: 'flex', flexDirection: 'column' })}>
       ${toRender}
+    </div>
+    <button @click=${addTodo}>Add Todo</button>
+  `
+}
+
+export const TodoItem = (id: number) => {
+  const todo = todos.get()[id]
+  const getStyles = () =>
+    styleMap({
+      textDecoration: todo.checked.get() ? 'line-through' : 'none',
+    })
+
+  effect(() => {
+    console.log('checked:', todo.checked.get())
+  })
+
+  return html`
+    <div>
+      <input
+        type="checkbox"
+        .checked=${todo.checked}
+        @change=${(e: any) => {
+          todo.checked.set(e.target.checked)
+        }}
+      />
+      <input
+        type="text"
+        .value=${todo.label}
+        style=${getStyles}
+        @change=${(e: any) => {
+          todo.label.set(e.target.value)
+        }}
+      />
     </div>
   `
 }
 
-export const TodoItem = (label: string, checked: Writable<boolean>) => {
-  const getStyles = () =>
-    styleMap({
-      textDecoration: checked.get() ? 'line-through' : 'none',
-    })
-
-  effect(() => {
-    console.log('checked:', checked.get())
-  })
-
-  return html`
-    <label>
-      <input
-        type="checkbox"
-        .checked=${checked}
-        @change=${(e: any) => {
-          checked.set(e.target.checked)
-        }}
-      />
-      <span style=${getStyles}>${label}</span>
-    </label>
-  `
+export const App = () => {
+  return TodoList()
 }
+
+render(App(), document.body)
 
 /*
 To do:
-- Move used cache entry to front of cache, pop old ones off the end
-- Cache option to count number of times used vs last time used?
+- Cache option to count number of times used vs last time used? Nah, default to frequency, tiebreak by newness
 - Better logic for tying effect to component, not just the next template
 - Consider how router would work, especially prefetching
 - Post-render effects
-- Better efficiency in batch operations for multiple set operations that end up back to original value?
+- Promise support? 
+- Web component generation:
+  - Function:
+    - 0: name
+    - 1: component function
+    - 2?: attribute transformer map:
+      - key: attribute name
+      - value: function that transforms string attribute value to state value
+  - Automatically create state for props?
+  - Use LitElement?
 */
