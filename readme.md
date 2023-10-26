@@ -11,33 +11,44 @@ Only five primitives are needed to build reactive components:
 - `render(template, container)` - a function that renders a template to a container
 
 ```ts
-import { state, computed, effect, html, render } from 'solit'
+import { state, computed, effect, html, render, type Writable } from 'solit'
 
 const Counter = () => {
   const count = state(0)
-  const double = computed(() => count.get() * 2)
-
-  effect(() => {
-    console.log('doubled:', double.get())
-
-    return () => {
-      console.log('cleaning up doubled effect')
-    }
-  })
 
   const increment = () => count.update((current) => current + 1)
 
   return html`
     <div>
+      <!-- Event handlers are automatically batched -->
       <button @click=${increment}>Increment</button>
       <!-- Signals can be passed directly in -->
       <p>Count: ${count}</p>
-      <p>Double: ${double}</p>
+      <!-- Components are just functions that return templates -->
+      ${Doubled({ count })}
       <!-- Functions are reactive to any signal updates inside of them -->
       <p>Triple: ${() => count.get() * 3}</p>
     </div>
   `
 }
+
+const Doubled = ({ count }: { count: Writable<number> }) => {
+  // Automatically tracks dependency `count`
+  const doubled = computed(() => count.get() * 2)
+
+  // Runs whenever `doubled` changes
+  effect(() => {
+    console.log('doubled:', doubled.get())
+
+    // Runs before the next effect
+    return () => {
+      console.log('cleaning up doubled effect')
+    }
+  })
+
+  return html`<p>Double: ${doubled}</p>`
+}
+
 render(Counter(), document.body)
 ```
 
@@ -56,6 +67,7 @@ Writable signals additionally have the following methods:
 - `set(value)` - sets the current value
 - `update(updater)` - updates the current value with an updater function that is passed the current value and returns the new value
 - `reset()` - resets the current value to the initial value
+- `mutate(callback)` - runs a callback that mutates the current value (typically an object or array) and then requests an update
 
 Computed signals are optimized to only compute when their values are requested, either by calling their `get()` or `peak()` method directly or if they have subscribers, and then this value is memoized for as long as dependencies don't update.
 
