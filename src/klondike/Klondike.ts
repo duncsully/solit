@@ -1,5 +1,5 @@
 import { styleMap } from 'lit/directives/style-map.js'
-import { Writable, state } from '../Observable'
+import { Writable, computed, state } from '../Observable'
 import { effect } from '../directives/EffectContextDirective'
 import { html } from '../html'
 import { Card, Rank, Suit } from './Card'
@@ -65,6 +65,10 @@ export const Klondike = () => {
   const selectedNegativeIndex = state(-1)
   const selectedPile = state(waste)
 
+  const selectedCard = computed(
+    () => selectedPile.get().get().at(selectedNegativeIndex.get())!
+  )
+
   const handleWasteClick = () => {
     selectedPile.set(waste)
     selectedNegativeIndex.set(-1)
@@ -74,10 +78,7 @@ export const Klondike = () => {
     state<Pile>(hash ? savedFoundation[i] : [])
   )
   const makeHandleFoundationClick = (foundationPile: Writable<Pile>) => () => {
-    const cardToMove = selectedPile
-      .get()
-      .get()
-      .at(selectedNegativeIndex.get()!)!
+    const cardToMove = selectedCard.get()
     const foundationCard = foundationPile.get().at(-1)
     const emptyFoundation = foundationCard === undefined
     const isAce = getValue(cardToMove) === 0
@@ -115,7 +116,7 @@ export const Klondike = () => {
 
   const handleTableauClick = (pileIndex: number, cardNegativeIndex: number) => {
     const tableauPile = tableau[pileIndex].get()
-    const cardToMove = selectedPile.get().get().at(selectedNegativeIndex.get())!
+    const cardToMove = selectedCard.get()
     const tableauCard = tableauPile.at(cardNegativeIndex)
     const isKing = getValue(cardToMove) === 12
     const emptyPile = tableauCard === undefined
