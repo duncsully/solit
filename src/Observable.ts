@@ -54,7 +54,7 @@ export class Observable<T> {
   subscribe(subscriber: Subscriber<T>) {
     const unsubscribe = this.observe(subscriber)
 
-    subscriber(this.peak())
+    subscriber(this.peek())
 
     return unsubscribe
   }
@@ -63,14 +63,14 @@ export class Observable<T> {
     this._subscribers.delete(subscriber)
   }
 
-  peak() {
+  peek() {
     this._lastBroadcastValue = this._value
     return this._value
   }
 
   get() {
     const caller = Observable.context.at(-1)
-    const value = this.peak()
+    const value = this.peek()
     if (caller) {
       // Only need to track this dependency if somewhere up the stack one
       // of the observables has subscribers
@@ -85,7 +85,7 @@ export class Observable<T> {
     const { hasChanged = notEqual } = this._options
     if (
       this._subscribers.size &&
-      hasChanged(this._lastBroadcastValue, this.peak())
+      hasChanged(this._lastBroadcastValue, this.peek())
     ) {
       this._subscribers.forEach((subscriber) => subscriber(this._value))
     }
@@ -152,14 +152,14 @@ export class Computed<T> extends Observable<T> {
     return unsubscribe
   }
 
-  peak = () => {
+  peek = () => {
     if (this._idleCallbackHandle) {
       cancelIdleCallback(this._idleCallbackHandle)
       this._idleCallbackHandle = undefined
     }
     const cachedResult = this._cache.find((cache) => {
       for (const [dependency, value] of cache.dependencies) {
-        if (dependency.peak() !== value) return false
+        if (dependency.peek() !== value) return false
       }
       return true
     })
@@ -172,7 +172,7 @@ export class Computed<T> extends Observable<T> {
     } else {
       this.computeValue()
     }
-    return super.peak()
+    return super.peek()
   }
 
   setCacheDependency = (dependency: Observable<any>, value: any) => {
@@ -302,7 +302,7 @@ export const state = <T>(value: T, options?: ObservableOptions<T>) =>
  * other computed observables, and updates lazily
  * @param getter - The function that computes the value of the observable,
  *  tracking any dependencies with `Observable.get()` and ignoring any
- *  read with `Observable.peak()`
+ *  read with `Observable.peek()`
  * @param options
  * @returns
  * @example

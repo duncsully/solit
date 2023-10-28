@@ -120,11 +120,11 @@ describe('Computed', () => {
       })
     })
 
-    describe('peak', () => {
+    describe('peek', () => {
       it('returns return value of function passed to constructor and does not update dependent Computeds', () => {
         const number = new Writable(2)
         const doubled = new Computed(() => number.get() * 2)
-        const quadrupledOnce = new Computed(() => doubled.peak() * 2)
+        const quadrupledOnce = new Computed(() => doubled.peek() * 2)
         quadrupledOnce.get()
 
         number.set(3)
@@ -352,13 +352,13 @@ describe('Writable', () => {
     })
   })
 
-  describe('peak', () => {
+  describe('peek', () => {
     it('returns the primitive value passed to the constructor and does not update dependent Computeds', () => {
       const number = new Writable(1)
 
-      expect(number.peak()).toBe(1)
+      expect(number.peek()).toBe(1)
 
-      const squared = new Computed(() => number.peak() ** 2)
+      const squared = new Computed(() => number.peek() ** 2)
       squared.get()
       number.set(2)
 

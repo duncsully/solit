@@ -57,7 +57,7 @@ render(Counter(), document.body)
 Signals are the state management solution in SoLit. There are writable signals created with `state(initialValue)` and computed signals created with `computed(getter)`. They both have the following common methods:
 
 - `get()` - returns the current value. When used inside of a computed signal's getter, an effect, or a function inside of a template, the signal is automatically tracked as a dependency.
-- `peak()` - returns the current value without tracking it as a dependency
+- `peek()` - returns the current value without tracking it as a dependency
 - `subscribe(callback)` - subscribes to changes to the current value, returns an unsubscribe function, and immediately calls the callback with the current value
 - `observe(callback)` - subscribes to changes to the current value, returns an unsubscribe function, but does not immediately call the callback with the current value
 - `unsubscribe(callback)` - unsubscribes a callback from changes to the current value
@@ -69,7 +69,7 @@ Writable signals additionally have the following methods:
 - `reset()` - resets the current value to the initial value
 - `mutate(callback)` - runs a callback that mutates the current value (typically an object or array) and then requests an update
 
-Computed signals are optimized to only compute when their values are requested, either by calling their `get()` or `peak()` method directly or if they have subscribers, and then this value is memoized for as long as dependencies don't update.
+Computed signals are optimized to only compute when their values are requested, either by calling their `get()` or `peek()` method directly or if they have subscribers, and then this value is memoized for as long as dependencies don't update.
 
 ## Templates
 
