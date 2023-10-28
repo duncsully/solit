@@ -5,6 +5,7 @@ import { html } from '../html'
 import { Card, Rank, Suit } from './Card'
 import { repeat } from 'lit/directives/repeat.js'
 
+// Bug with back after double clicking ace to foundation (doesn't happen with click or drag)
 // Validate hash state before using
 // New game button + undo buttons
 // FLIP animation?

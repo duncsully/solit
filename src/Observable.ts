@@ -280,12 +280,46 @@ export class Writable<T> extends Observable<T> {
   }
 }
 
+/**
+ * Creates a writable observable that allows setting a new value and can be
+ *  tracked by omputed observables
+ * @param value - The initial value of the observable
+ * @param options
+ * @returns
+ * @example
+ * ```ts
+ * const count = state(0)
+ * count.set(1) // 1
+ * count.update(value => value + 1) // 2
+ * count.rest() // 0
+ * ```
+ */
 export const state = <T>(value: T, options?: ObservableOptions<T>) =>
   new Writable(value, options)
 
+/**
+ * Creates a computed observable that tracks dependencies, can be tracked by
+ * other computed observables, and updates lazily
+ * @param getter - The function that computes the value of the observable,
+ *  tracking any dependencies with `Observable.get()` and ignoring any
+ *  read with `Observable.peak()`
+ * @param options
+ * @returns
+ * @example
+ * ```ts
+ * const count = state(0)
+ * const doubled = computed(() => count.get() * 2)
+ * ```
+ */
 export const computed = <T>(getter: () => T, options?: ComputedOptions<T>) =>
   new Computed(getter, options)
 
+/**
+ * Defer checking for subscription updates until passed action has run,
+ * preventing a subscriber from being updated multiple times for multiple
+ * writable observable write operations, and only if the final value has
+ * changed
+ */
 export const batch = Writable.batch
 
 export type Effect = () => void | (() => void)

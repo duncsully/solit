@@ -1,7 +1,7 @@
 import { noChange } from 'lit'
 import { AsyncDirective, directive } from 'lit/async-directive.js'
 
-type Observable<T> = {
+export type Observable<T> = {
   subscribe: (callback: (value: T) => void) => () => void
 }
 

@@ -3,7 +3,7 @@ import { styleMap } from 'lit/directives/style-map.js'
 import { Writable, computed, state } from './Observable'
 import { repeat } from 'lit/directives/repeat.js'
 import { html } from './html'
-import { render } from 'lit'
+import { nothing, render } from 'lit'
 
 /*
 How it works:
@@ -161,16 +161,57 @@ export const TodoItem = (id: number) => {
   `
 }
 
+const Nesteder = () => {
+  effect(() => {
+    console.log('running effect 1.1.1')
+    return () => console.log('cleaning up effect 1.1.1')
+  })
+  return html`<div>subtemplate 1.1.1</div>`
+}
+
+const NestedEffectTest = () => {
+  effect(() => {
+    console.log('running effect 1.1')
+    return () => console.log('cleaning up effect 1.1')
+  })
+
+  return html`<div>subtemplate 1.1</div>
+    ${Nesteder()}`
+}
+
+const EffectTest = () => {
+  const showingSubtemplate = state(true)
+  effect(() => {
+    console.log('running effect 1')
+    return () => console.log('cleaning up effect 1')
+  })
+
+  const subtemplate = NestedEffectTest()
+
+  effect(() => {
+    return () => console.log('cleaning up effect 2')
+  })
+
+  return html`
+    <button @click=${() => showingSubtemplate.update((current) => !current)}>
+      Toggle subtemplate
+    </button>
+    <div>template 1</div>
+    ${() => (showingSubtemplate.get() ? subtemplate : nothing)}
+  `
+}
+
 export const App = () => {
-  return TodoList()
+  return EffectTest()
 }
 
 render(App(), document.body)
 
 /*
 To do:
-- Cache option to count number of times used vs last time used? Nah, default to frequency, tiebreak by newness
-- Better logic for tying effect to component, not just the next template
+- Better logic for tying effect to component, cleanup doesn't work at all
+  but when I tried to refactor to not use the directive, the effects stopped
+  working reliably :cry:
 - Consider how router would work, especially prefetching
 - Post-render effects
 - Promise support? 

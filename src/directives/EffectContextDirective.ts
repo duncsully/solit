@@ -43,8 +43,16 @@ export const effectContext = directive(EffectContextDirective)
 /**
  * A hook that runs the given callback when the component is mounted
  * and when any of its observables change. If the callback returns a function,
- * it will be run when the component is unmounted and before the next
- * callback is run.
+ * it will be run before the next callback is run.
+ * @param effect - The callback to run, optionally returning a cleanup function
+ * @example
+ * ```ts
+ * const count = state(0)
+ * effect(() => {
+ *   console.log('count is now', count.get())
+ *   return () => console.log('cleaning up count effect')
+ * })
+ * ```
  */
 export const effect = (effect: Effect) => {
   const effectsForContext = effectsStack[effectsStack.length - 1]
