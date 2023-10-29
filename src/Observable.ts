@@ -280,6 +280,8 @@ export class Writable<T> extends Observable<T> {
   }
 }
 
+export type State<T> = Writable<T>
+
 /**
  * Creates a writable observable that allows setting a new value and can be
  * tracked by computed observables
@@ -295,7 +297,7 @@ export class Writable<T> extends Observable<T> {
  * ```
  */
 export const state = <T>(value: T, options?: ObservableOptions<T>) =>
-  new Writable(value, options)
+  new Writable(value, options) as State<T>
 
 /**
  * Creates a computed observable that tracks dependencies, can be tracked by
