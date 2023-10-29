@@ -13,10 +13,5 @@ export default {
       name: 'SoLit',
       fileName: 'main',
     },
-    rollupOptions: {
-      input: {
-        main: resolve(__dirname, 'index.html'),
-      }
-    }
   },
 }
