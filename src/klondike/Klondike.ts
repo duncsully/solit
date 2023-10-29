@@ -5,7 +5,6 @@ import { Card, Rank, Suit } from './Card'
 import { repeat } from 'lit/directives/repeat.js'
 import { component, effect } from '../component'
 
-// Bug with back after drawing from stock
 // Bug with back after double clicking ace to foundation (doesn't happen with click or drag)
 // Validate hash state before using
 // New game button + undo buttons
@@ -14,6 +13,7 @@ import { component, effect } from '../component'
 // Better styling solution?
 // Improve drop area
 // Support 3 card draw
+// Responsiveness
 
 type Pile = number[]
 
@@ -272,7 +272,7 @@ export const Klondike = component(() => {
         gridTemplateColumns: 'repeat(7, 1fr)',
       })}
     >
-      <div @mousedown=${handleStockClick}>
+      <div @click=${handleStockClick}>
         ${() =>
           stock.get().length
             ? Card({ faceUp: false })
