@@ -2,8 +2,9 @@
 
 Solid, but with lit-html. "Components" are just functions that setup reactive lit-html templates. State and effects are managed with writable and computed signals that automatically track dependent signals. No JSX, no manual dependency tracking, no rules of hooks, no VDOM, no compiler.
 
-Only five primitives are needed to build reactive components:
+Only six primitives are needed to build reactive components:
 
+- `component(templateFactory)` - a function to turn a template factory into a component with a lifecycle
 - `state(initialValue)` - a writable signal that tracks its dependents
 - `computed(getter)` - a read-only signal that tracks its dependents and is lazily evaluated
 - `effect(callback)` - a callback that is run when its dependencies change, optionally running a returned cleanup callback
@@ -11,9 +12,17 @@ Only five primitives are needed to build reactive components:
 - `render(template, container)` - a function that renders a template to a container
 
 ```ts
-import { state, computed, effect, html, render, type Writable } from 'solit'
+import {
+  component,
+  state,
+  computed,
+  effect,
+  html,
+  render,
+  type Writable,
+} from 'solit'
 
-const Counter = () => {
+const Counter = component(() => {
   const count = state(0)
 
   const increment = () => count.update((current) => current + 1)
@@ -30,9 +39,9 @@ const Counter = () => {
       <p>Triple: ${() => count.get() * 3}</p>
     </div>
   `
-}
+})
 
-const Doubled = ({ count }: { count: Writable<number> }) => {
+const Doubled = component(({ count }: { count: Writable<number> }) => {
   // Automatically tracks dependency `count`
   const doubled = computed(() => count.get() * 2)
 
@@ -47,7 +56,7 @@ const Doubled = ({ count }: { count: Writable<number> }) => {
   })
 
   return html`<p>Double: ${doubled}</p>`
-}
+})
 
 render(Counter(), document.body)
 ```
