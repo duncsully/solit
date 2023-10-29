@@ -5,7 +5,6 @@ import { Card, Rank, Suit } from './Card'
 import { repeat } from 'lit/directives/repeat.js'
 import { component, effect } from '../component'
 
-// Bug with back after double clicking ace to foundation (doesn't happen with click or drag)
 // Validate hash state before using
 // New game button + undo buttons
 // FLIP animation?
@@ -158,8 +157,8 @@ export const Klondike = component(() => {
         : getValue(card) === 0
     )
     if (foundationPile) {
-      foundationPile.update((current) => [...current, card])
       pile.update((current) => [...current.slice(0, -1)])
+      foundationPile.update((current) => [...current, card])
     }
   }
 
