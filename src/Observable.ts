@@ -325,15 +325,15 @@ export const batch = Writable.batch
 export type Effect = () => void | (() => void)
 
 export const watch = (callback: Effect, name: string = 'watcher') => {
-  let count = 1
   let cleanup: (() => void) | void
   const watcher = computed(
     () => {
-      cleanup?.()
-      cleanup = callback()
-      return count++
+      batch(() => {
+        cleanup?.()
+        cleanup = callback()
+      })
     },
-    { name }
+    { name, hasChanged: () => true }
   )
   const unsubscribe = watcher.subscribe(() => {})
   return () => {
