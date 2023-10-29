@@ -1,9 +1,10 @@
-import { effect } from './directives/EffectContextDirective'
 import { styleMap } from 'lit/directives/style-map.js'
 import { Writable, computed, state } from './Observable'
 import { repeat } from 'lit/directives/repeat.js'
 import { html } from './html'
-import { nothing, render } from 'lit'
+import { render } from 'lit'
+import { component, effect } from './component'
+import { when } from 'lit/directives/when.js'
 
 /*
 How it works:
@@ -19,20 +20,7 @@ It can also call effects, which are just functions that run when the
 component is mounted and when any of its states change.
 */
 
-/* const partial = (strings: TemplateStringsArray, ...values: unknown[]) => {
-  const litValues = values.map((v) => {
-    if (v instanceof Observable) {
-      return observe(v)
-    }
-    if (v instanceof Function) {
-      return func(v)
-    }
-    return v
-  })
-  return litHtml(strings, ...litValues)
-} */
-
-export const Test = (label: string, start: number = 0) => {
+export const Test = component((label: string, start: number = 0) => {
   const count = state(start, { name: 'count' })
 
   effect(() => {
@@ -53,7 +41,7 @@ export const Test = (label: string, start: number = 0) => {
   }
 
   return html`<button @click=${handleClick}>${label} ${count}</button>`
-}
+})
 
 /* const Doubled = (count: Writable<number>) => {
   const doubled = computed(() => count.get() * 2)
@@ -78,7 +66,7 @@ export const Shared = () => {
   </button>`
 }
 
-const MemoryLeakTest = () => {
+/* const MemoryLeakTest = () => {
   const count = state(0)
   console.log(count)
   return html`<button
@@ -91,25 +79,39 @@ const MemoryLeakTest = () => {
       Add a bunch of computeds
     </button>
     <button @click=${() => count.update((value) => value + 1)}>Add</button>`
-}
+} */
 
 const todos = state(
   {} as { label: Writable<string>; checked: Writable<boolean>; id: number }[]
 )
 
 export const TodoList = () => {
+  const newValue = state('')
   const addTodo = () => {
     todos.update((before) => {
       const id = Date.now()
       return {
         ...before,
         [id]: {
-          label: state(''),
+          label: state(newValue.peek()),
           checked: state(false),
           id,
         },
       }
     })
+    newValue.set('')
+  }
+
+  const handleChange = (e: any) => {
+    newValue.set(e.target.value)
+  }
+
+  const handleKeyup = (e: KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      addTodo()
+    } else {
+      newValue.set((e.target as HTMLInputElement)?.value)
+    }
   }
 
   const toRender = computed(
@@ -122,10 +124,22 @@ export const TodoList = () => {
   )
 
   return html`
-    <div style=${styleMap({ display: 'flex', flexDirection: 'column' })}>
+    <div
+      style=${styleMap({
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '0.5rem',
+      })}
+    >
       ${toRender}
+      <input
+        type="text"
+        placeholder="Add a todo"
+        .value=${newValue}
+        @change=${handleChange}
+        @keyup=${handleKeyup}
+      />
     </div>
-    <button @click=${addTodo}>Add Todo</button>
   `
 }
 
@@ -161,32 +175,41 @@ export const TodoItem = (id: number) => {
   `
 }
 
-const Nesteder = () => {
+const Nesteder = component(() => {
+  const count = state(0)
   effect(() => {
     console.log('running effect 1.1.1')
+    console.log('inner count is', count.get())
     return () => console.log('cleaning up effect 1.1.1')
   })
-  return html`<div>subtemplate 1.1.1</div>`
-}
+  return html`<div>
+    subtemplate 1.1.1<button @click=${() => count.update((value) => value + 1)}>
+      Increment
+    </button>
+  </div>`
+})
 
-const NestedEffectTest = () => {
+const NestedEffectTest = component((count: Writable<number>) => {
   effect(() => {
     console.log('running effect 1.1')
+    // Passed in from parent
+    console.log('outer count is', count.get())
     return () => console.log('cleaning up effect 1.1')
   })
 
   return html`<div>subtemplate 1.1</div>
     ${Nesteder()}`
-}
+})
 
-const EffectTest = () => {
+const EffectTest = component(() => {
   const showingSubtemplate = state(true)
+  const count = state(0)
   effect(() => {
     console.log('running effect 1')
     return () => console.log('cleaning up effect 1')
   })
 
-  const subtemplate = NestedEffectTest()
+  const subtemplate = NestedEffectTest(count)
 
   effect(() => {
     return () => console.log('cleaning up effect 2')
@@ -196,10 +219,13 @@ const EffectTest = () => {
     <button @click=${() => showingSubtemplate.update((current) => !current)}>
       Toggle subtemplate
     </button>
+    <button @click=${() => count.update((value) => value + 1)}>
+      Increment
+    </button>
     <div>template 1</div>
-    ${() => (showingSubtemplate.get() ? subtemplate : nothing)}
+    ${() => when(showingSubtemplate.get(), () => subtemplate)}
   `
-}
+})
 
 export const App = () => {
   return EffectTest()
@@ -209,19 +235,6 @@ render(App(), document.body)
 
 /*
 To do:
-- Better logic for tying effect to component, cleanup doesn't work at all
-  but when I tried to refactor to not use the directive, the effects stopped
-  working reliably :cry:
 - Consider how router would work, especially prefetching
-- Post-render effects
-- Promise support? 
-- Web component generation:
-  - Function:
-    - 0: name
-    - 1: component function
-    - 2?: attribute transformer map:
-      - key: attribute name
-      - value: function that transforms string attribute value to state value
-  - Automatically create state for props?
-  - Use LitElement?
+- Post-render effects without using ref?
 */

@@ -1,10 +1,11 @@
 import { styleMap } from 'lit/directives/style-map.js'
 import { Writable, computed, state } from '../Observable'
-import { effect } from '../directives/EffectContextDirective'
 import { html } from '../html'
 import { Card, Rank, Suit } from './Card'
 import { repeat } from 'lit/directives/repeat.js'
+import { component, effect } from '../component'
 
+// Bug with back after drawing from stock
 // Bug with back after double clicking ace to foundation (doesn't happen with click or drag)
 // Validate hash state before using
 // New game button + undo buttons
@@ -16,7 +17,7 @@ import { repeat } from 'lit/directives/repeat.js'
 
 type Pile = number[]
 
-export const Klondike = () => {
+export const Klondike = component(() => {
   // load state from hash
   const hash = window.location.hash.slice(1)
   const [
@@ -334,7 +335,7 @@ export const Klondike = () => {
       )}
     </div>
   `
-}
+})
 
 const getValue = (card: number) => card % 13
 
