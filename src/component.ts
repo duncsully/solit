@@ -4,10 +4,13 @@ import { Directive, PartInfo, directive } from 'lit/directive.js'
 
 const effectContext = [] as Effect[][]
 
-export const effect = (callback: Effect, name: string = 'effect') => {
+// TODO: ability to name effects?
+
+export const effect = (callback: Effect) => {
   effectContext.at(-1)?.push(callback)
 }
 
+// The template should be static, but we use a directive to use its lifecycle
 export const component =
   <T extends unknown[]>(callback: (...args: T) => TemplateResult) =>
   (...props: T) => {
@@ -27,15 +30,15 @@ export const component =
         return template
       }
 
-      protected runEffects() {
-        this.cleanups = effects.map((effectCb) => watch(effectCb))
+      runEffects() {
+        this.cleanups = effects.map((effectCb) => watch(effectCb, 'effect'))
       }
 
-      protected disconnected(): void {
+      disconnected(): void {
         this.cleanups.forEach((cleanup) => cleanup?.())
       }
 
-      protected reconnected(): void {
+      reconnected(): void {
         this.runEffects()
       }
     }
