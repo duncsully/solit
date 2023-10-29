@@ -259,16 +259,17 @@ export const Klondike = component(() => {
     width: '10rem',
     height: '14rem',
     border: '1px solid grey',
-    borderRadius: '5px',
+    borderRadius: '0.75rem',
   })
 
   return html`
     <div
       style=${styleMap({
+        margin: '0 auto',
         padding: '0.5rem',
         display: 'grid',
         gap: '2rem',
-        gridTemplateColumns: 'repeat(7, 1fr)',
+        gridTemplateColumns: 'repeat(7, 10rem)',
       })}
     >
       <div @click=${handleStockClick}>

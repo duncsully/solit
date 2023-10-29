@@ -23,6 +23,23 @@ a:hover {
   color: #535bf2;
 }
 
+html {
+  font-size: 50%;
+}
+
+body {
+  display: flex;
+}
+
+@media screen and (min-width: 1024px) {
+  html {
+    font-size: 100%;
+  }
+  body {
+    justify-content: space-around;
+  }
+}
+
 @media (prefers-color-scheme: light) {
   :root {
     color: #213547;

@@ -54,9 +54,9 @@ export const Card = ({
       @dragover=${(e: DragEvent) => e.preventDefault()}
       draggable="true"
       style=${styleMap({
-        boxShadow: selected ? '0 0 10px cyan' : 'none',
+        boxShadow: selected ? '0 0 0.75rem lime' : 'none',
         width: 'fit-content',
-        borderRadius: '10px',
+        borderRadius: '0.75rem',
         zIndex: selected ? '1' : '0',
         position: 'relative',
       })}
@@ -67,10 +67,10 @@ export const Card = ({
           flexDirection: 'column',
           justifyContent: 'space-between',
           border: '1px solid darkgrey',
-          borderRadius: '10px',
+          borderRadius: '0.75rem',
           width: '10rem',
           height: '14rem',
-          fontSize: 'xx-large',
+          fontSize: '2rem',
           position: 'relative',
           cursor: onClick ? 'pointer' : 'default',
           backgroundColor: faceUp ? 'white' : 'lightblue',
