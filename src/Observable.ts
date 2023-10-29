@@ -282,7 +282,7 @@ export class Writable<T> extends Observable<T> {
 
 /**
  * Creates a writable observable that allows setting a new value and can be
- *  tracked by omputed observables
+ * tracked by computed observables
  * @param value - The initial value of the observable
  * @param options
  * @returns
