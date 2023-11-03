@@ -237,4 +237,6 @@ render(App(), document.body)
 To do:
 - Consider how router would work, especially prefetching
 - Post-render effects without using ref?
+- Batch undo? Any change to a state should be undoable, and
+  any changes during a batch should all be undoable in one go.
 */
