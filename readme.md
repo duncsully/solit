@@ -19,7 +19,7 @@ import {
   effect,
   html,
   render,
-  type Writable,
+  type State,
 } from 'solit'
 
 const Counter = component(() => {
@@ -41,7 +41,7 @@ const Counter = component(() => {
   `
 })
 
-const Doubled = component(({ count }: { count: Writable<number> }) => {
+const Doubled = component(({ count }: { count: State<number> }) => {
   // Automatically tracks dependency `count`
   const doubled = computed(() => count.get() * 2)
 
@@ -49,7 +49,8 @@ const Doubled = component(({ count }: { count: Writable<number> }) => {
   effect(() => {
     console.log('doubled:', doubled.get())
 
-    // Runs before the next effect
+    // Runs before the next effect and when the template returned
+    // by the Doubled component is removed from the DOM
     return () => {
       console.log('cleaning up doubled effect')
     }
