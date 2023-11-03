@@ -90,18 +90,26 @@ export class Observable<T> {
       this._subscribers.forEach((subscriber) => subscriber(this._value))
     }
 
-    this._dependents.forEach((dependentRef) => {
+    // Since these may be removed from the set, we need to make a copy
+    // before iterating
+    const dependents = [...this._dependents]
+
+    for (const dependentRef of dependents) {
       const dependent = dependentRef.deref()
       if (dependent) {
         dependent.updateSubscribers()
       } else {
         this._dependents.delete(dependentRef)
       }
-    })
+    }
   }
 
   addDependent(dependentRef: WeakRef<Computed<any>>) {
     this._dependents.add(dependentRef)
+  }
+
+  removeDependent(dependentRef: WeakRef<Computed<any>>) {
+    this._dependents.delete(dependentRef)
   }
 
   protected _subscribers = new Set<Subscriber<T>>()
@@ -176,6 +184,7 @@ export class Computed<T> extends Observable<T> {
   }
 
   setCacheDependency = (dependency: Observable<any>, value: any) => {
+    this._lastDependencies.add(dependency)
     const lastCache = this._cache[0]
     if (lastCache) {
       lastCache.dependencies.set(dependency, value)
@@ -191,6 +200,10 @@ export class Computed<T> extends Observable<T> {
 
   protected computeValue() {
     Observable.context.push(this)
+    this._lastDependencies.forEach((dependency) => {
+      dependency.removeDependent(this._selfRef)
+    })
+    this._lastDependencies.clear()
     if (this._cacheSize) {
       this._cache.unshift({
         value: this._value,
@@ -218,6 +231,7 @@ export class Computed<T> extends Observable<T> {
   protected _cache = [] as CachedResult<T>[]
   protected _computeOnIdle = false
   protected _idleCallbackHandle: number | undefined
+  protected _lastDependencies = new Set<Observable<any>>()
 }
 
 /**

@@ -340,6 +340,27 @@ describe('Computed', () => {
 
       expect(subscriber).toHaveBeenCalled()
     })
+
+    it('stops tracking dependencies that were not called in previous computation', () => {
+      const firstNumber = new Writable(1)
+      const secondNumber = new Writable(2)
+      const lever = new Writable(true)
+      const computation = vi.fn(() => {
+        if (lever.get()) {
+          return firstNumber.get()
+        }
+        return secondNumber.get()
+      })
+      const computed = new Computed(computation, { cacheSize: 0 })
+
+      const subscriber = vi.fn()
+      computed.subscribe(subscriber)
+      lever.set(false)
+      computation.mockClear()
+      firstNumber.set(2)
+
+      expect(computation).not.toHaveBeenCalled()
+    })
   })
 })
 
