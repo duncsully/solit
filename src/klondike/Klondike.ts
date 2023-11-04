@@ -5,6 +5,7 @@ import { Card, Rank, Suit } from './Card'
 import { repeat } from 'lit/directives/repeat.js'
 import { component, effect } from '../component'
 
+// Bug from browser backing after moving ace to foundation came back
 // Validate hash state before using
 // New game button + undo buttons
 // FLIP animation?
