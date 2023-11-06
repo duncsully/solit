@@ -1,7 +1,14 @@
 export type Subscriber<T> = (value: T) => void
 
 export type ObservableOptions<T> = {
+  /**
+   * Function that determines if the new value is different from the current value.
+   * By default, uses Object.is
+   */
   hasChanged?(currentValue: T | undefined, newValue: T): boolean
+  /**
+   * Optional name for debugging purposes
+   */
   name?: string
 }
 
@@ -46,11 +53,20 @@ export class Observable<T> {
     this._lastBroadcastValue = _value
   }
 
+  /**
+   * Subscribes callback to changes. Does not immediately call it with the current
+   * value.
+   * @returns A function that unsubscribes the callback
+   */
   observe(subscriber: Subscriber<T>) {
     this._subscribers.add(subscriber)
     return () => this.unsubscribe(subscriber)
   }
 
+  /**
+   * Subscribes callback to changes and immediately calls it with the current value.
+   * @returns A function that unsubscribes the callback
+   */
   subscribe(subscriber: Subscriber<T>) {
     const unsubscribe = this.observe(subscriber)
 
@@ -59,22 +75,30 @@ export class Observable<T> {
     return unsubscribe
   }
 
+  /**
+   * Unsubscribes a callback from changes
+   */
   unsubscribe(subscriber: Subscriber<T>) {
     this._subscribers.delete(subscriber)
   }
 
+  /**
+   * Get the current value without setting this observable as a dependency
+   * of the calling computed observable
+   */
   peek() {
     this._lastBroadcastValue = this._value
     return this._value
   }
 
+  /**
+   * Get the current value and set this observable as a dependency of the
+   * calling computed observable
+   */
   get() {
     const caller = Observable.context.at(-1)
     const value = this.peek()
     if (caller) {
-      // Only need to track this dependency if somewhere up the stack one
-      // of the observables has subscribers
-
       this._dependents.add(caller._selfRef)
       caller.setCacheDependency(this, value)
     }
@@ -262,6 +286,9 @@ export class Writable<T> extends Observable<T> {
     super(_initialValue, _options)
   }
 
+  /**
+   * Set a value and update subscribers if it has changed
+   */
   set = (value: T) => {
     const { hasChanged = notEqual } = this._options
     const prevValue = this._value
@@ -272,15 +299,27 @@ export class Writable<T> extends Observable<T> {
     }
   }
 
+  /**
+   * Update the value with a function that takes the current value and returns
+   * a new value, and update subscribers if it has changed
+   */
   update = (updater: (currentValue: T) => T) => {
     this.set(updater(this._value))
   }
 
+  /**
+   * Mutate the value with a function that takes the current value and mutates
+   * it, and update subscribers if it has changed. Note: you will need to implement
+   * your own `hasChanged` option for this to work with objects and arrays.
+   */
   mutate = (mutator: (currentValue: T) => void) => {
     mutator(this._value)
     this.requestUpdate()
   }
 
+  /**
+   * Reset the value to the initial value
+   */
   reset = () => {
     this.set(this._initialValue)
   }
@@ -307,7 +346,7 @@ export type State<T> = Writable<T>
  * const count = state(0)
  * count.set(1) // 1
  * count.update(value => value + 1) // 2
- * count.rest() // 0
+ * count.reset() // 0
  * ```
  */
 export const state = <T>(value: T, options?: ObservableOptions<T>) =>
@@ -335,11 +374,33 @@ export const computed = <T>(getter: () => T, options?: ComputedOptions<T>) =>
  * preventing a subscriber from being updated multiple times for multiple
  * writable observable write operations, and only if the final value has
  * changed
+ * @example
+ * ```ts
+ * const height = state(2)
+ * const width = state(6)
+ * const area = computed(() => height.get() * width.get())
+ *
+ * batch(() => {
+ *  height.set(3)
+ *  width.set(4)
+ * // Area will be updated only once, and it won't call subscribers
+ * // since its value hasn't changed
+ * })
+ * ```
  */
 export const batch = Writable.batch
 
 export type Effect = () => void | (() => void)
 
+/**
+ * Call the passed callback immediately and whenever any of its observable
+ * dependencies change. Optionally return a cleanup function and it will be
+ * called before the next time the callback is called or when the watcher is
+ * unsubscribed.
+ * @param callback
+ * @param [name=watcher] - Optional name for debugging purposes
+ * @returns A function that unsubscribes the watcher
+ */
 export const watch = (callback: Effect, name: string = 'watcher') => {
   let cleanup: (() => void) | void
   const watcher = computed(
