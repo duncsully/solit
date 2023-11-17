@@ -112,6 +112,14 @@ describe('Computed', () => {
   })
 
   describe('API', () => {
+    describe('value', () => {
+      it('getter returns return value of function passed to constructor', () => {
+        const computedObservable = new Computed(() => 'hi')
+
+        expect(computedObservable.value).toBe('hi')
+      })
+    })
+
     describe('get', () => {
       it('returns return value of function passed to constructor', () => {
         const computedObservable = new Computed(() => 'hi')
@@ -365,6 +373,22 @@ describe('Computed', () => {
 })
 
 describe('Writable', () => {
+  describe('value', () => {
+    it('getter returns primitive value passed to the constructor', () => {
+      const number = new Writable(1)
+
+      expect(number.value).toBe(1)
+    })
+
+    it('setter sets a new primitive value', () => {
+      const number = new Writable(1)
+
+      number.value = 2
+
+      expect(number.value).toBe(2)
+    })
+  })
+
   describe('get', () => {
     it('returns the primitive value passed to the constructor', () => {
       const number = new Writable(1)

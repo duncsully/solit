@@ -53,6 +53,10 @@ export class Observable<T> {
     this._lastBroadcastValue = _value
   }
 
+  get value() {
+    return this.get()
+  }
+
   /**
    * Subscribes callback to changes. Does not immediately call it with the current
    * value.
@@ -284,6 +288,13 @@ export class Writable<T> extends Observable<T> {
   }
   constructor(protected _initialValue: T, _options: ObservableOptions<T> = {}) {
     super(_initialValue, _options)
+  }
+
+  get value() {
+    return super.value
+  }
+  set value(value: T) {
+    this.set(value)
   }
 
   /**

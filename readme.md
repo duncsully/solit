@@ -79,7 +79,17 @@ Writable signals additionally have the following methods:
 - `reset()` - resets the current value to the initial value
 - `mutate(callback)` - runs a callback that mutates the current value (typically an object or array) and then requests an update
 
-Computed signals are optimized to only compute when their values are requested, either by calling their `get()` or `peek()` method directly or if they have subscribers, and then this value is memoized for as long as dependencies don't update.
+Additionally, signals have a `value` property that wraps the `get` method and `set` method for writable signals. You may find this more familiar or convenient in certain cases.
+
+```ts
+const count = state(0)
+
+const increment = () => (count.value += 1)
+// vs
+const increment = () => count.update((current) => current + 1)
+```
+
+Computed signals are optimized to only compute when their values are requested, either by calling their `get()` or `peek()` method directly or if they have subscribers, and then by default this value is memoized for as long as dependencies don't update.
 
 ## Templates
 
@@ -146,3 +156,16 @@ count.set(3) // Computed 4th time -> 8, cache size exceeded, removed 0 -> 0, cac
 Computed signals are normally evaluated lazily, computing only when their value is requested. This avoids wasting work done for values that won't be used immediately, but in rare cases (e.g. when a computed value depends on an API request) it can worsen the experience when an expensive computation is suddenly demanded. You can optionally choose to compute values on idle by passing `computeOnIdle: true` to the options. This will cause the computed signal to compute its value on idle both when it is created and when any of its dependencies change. This means the latest value will be immediately available when requested.
 
 **Note:** This requires having `cacheSize` set to at least 1.
+
+## Recipes
+
+#### Readonly state
+
+If you want to expose a writable signal's value to another component but don't want to allow it to update the value, you can either pass only the `get` method or you can wrap it in a computed signal.
+
+```ts
+const count = state(0)
+
+const getter = count.get
+const readonlyCount = computed(count.get)
+```
