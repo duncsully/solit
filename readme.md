@@ -91,6 +91,24 @@ const increment = () => count.update((current) => current + 1)
 
 Computed signals are optimized to only compute when their values are requested, either by calling their `get()` or `peek()` method directly or if they have subscribers, and then by default this value is memoized for as long as dependencies don't update.
 
+## Stores
+
+Stores are a way to manage state in a more structured way. They are created with the `store` function which return an object with the same shape, recursively wrapping all nested objects. The underlying mechanism is still based around signals, but stores provide a more ergonomic API for working with simple read and write operations, especially with nested objects.
+
+```ts
+const dimensions = store({
+  width: 1,
+  height: 2,
+  get area() {
+    return this.width * this.height
+  },
+})
+
+watch(() => console.log(dimensions.area)) //> 2
+
+dimensions.width = 3 //> 6
+```
+
 ## Templates
 
 Templates are built using a slightly enhanced version of lit-html. The `html` template literal tagging function is used to create a template that can be rendered with the `render` function. [Read more about lit-html here.](https://lit.dev/docs/libraries/standalone-templates/) `html` has the following enhancements:
