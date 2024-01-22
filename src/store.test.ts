@@ -88,6 +88,10 @@ describe('store', () => {
     test.nested = { value: 2 }
 
     expect(subscriber).toHaveBeenCalledWith(2)
+
+    test.nested.value = 3
+
+    expect(subscriber).toHaveBeenCalledWith(3)
   })
 
   it('works with signals', () => {

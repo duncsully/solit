@@ -93,7 +93,9 @@ export const store = <T extends Object>(initialState: T) => {
             return prop.get()
           },
           set(value) {
-            prop.set(value)
+            const newValue =
+              value instanceof Object ? createObjectWrapper(value) : value
+            prop.set(newValue)
           },
         })
       }
