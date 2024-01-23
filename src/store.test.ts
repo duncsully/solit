@@ -126,4 +126,26 @@ describe('store', () => {
     expect(subscriber).toHaveBeenCalledWith('BOB')
     expect(uppered.get()).toBe('BOB')
   })
+
+  it('batches updates from methods', () => {
+    const test = store({
+      width: 1,
+      height: 2,
+      get area() {
+        return this.width * this.height
+      },
+      flip() {
+        ;[this.width, this.height] = [this.height, this.width]
+      },
+    })
+    const subscriber = vi.fn()
+    watch(() => {
+      subscriber(test.area)
+    })
+    subscriber.mockClear()
+
+    test.flip()
+
+    expect(subscriber).not.toHaveBeenCalled()
+  })
 })

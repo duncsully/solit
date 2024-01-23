@@ -1,4 +1,4 @@
-import { Computed, Writable, computed, state } from './Observable'
+import { Computed, Writable, batch, computed, state } from './Observable'
 
 type IfEquals<X, Y, A, B> = (<T>() => T extends X ? 1 : 2) extends <
   T
@@ -70,6 +70,16 @@ TODO:
 export const store = <T extends Object>(initialState: T) => {
   const createObjectWrapper = (obj: any) => {
     const result = Object.create(null)
+    const wrapMethod =
+      (method: Function) =>
+      (...args: any[]) => {
+        let returned: any
+        batch(() => {
+          returned = method.call(result, args)
+        })
+        return returned
+      }
+
     Object.keys(obj).forEach((key) => {
       const descriptor = Object.getOwnPropertyDescriptor(obj, key)!
       if (descriptor.get) {
@@ -83,7 +93,9 @@ export const store = <T extends Object>(initialState: T) => {
         return
       } else {
         let value = descriptor.value
-        if (value instanceof Object) {
+        if (typeof value === 'function') {
+          value = wrapMethod(value)
+        } else if (value instanceof Object) {
           value = createObjectWrapper(value)
         }
         const prop = state(value)
@@ -93,8 +105,12 @@ export const store = <T extends Object>(initialState: T) => {
             return prop.get()
           },
           set(value) {
-            const newValue =
-              value instanceof Object ? createObjectWrapper(value) : value
+            let newValue = value
+            if (typeof value === 'function') {
+              newValue = wrapMethod(value)
+            } else if (newValue instanceof Object) {
+              newValue = createObjectWrapper(value)
+            }
             prop.set(newValue)
           },
         })
