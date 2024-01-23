@@ -24,6 +24,8 @@ export const effect = (callback: Effect) => {
   effectContext.at(-1)?.push(callback)
 }
 
+export type Component<T extends unknown[]> = (...args: T) => TemplateResult
+
 // The template should be static, but we use a directive to use its lifecycle
 
 /**
@@ -48,13 +50,15 @@ export const effect = (callback: Effect) => {
  * ```
  */
 export const component =
-  <T extends unknown[]>(templateFactory: (...args: T) => TemplateResult) =>
+  <T extends unknown[]>(
+    templateFactory: (...args: T) => TemplateResult
+  ): Component<T> =>
   (...props: T) => {
     effectContext.push([])
     const template = templateFactory(...props)
     const effects = effectContext.pop()!
 
-    class Component extends Directive {
+    class ComponentDirective extends Directive {
       cleanups: ReturnType<Effect>[] = []
 
       constructor(partInfo: PartInfo) {
@@ -78,5 +82,5 @@ export const component =
         this.runEffects()
       }
     }
-    return directive(Component)()
+    return directive(ComponentDirective)() as TemplateResult
   }
