@@ -148,4 +148,101 @@ describe('store', () => {
 
     expect(subscriber).not.toHaveBeenCalled()
   })
+
+  it('accepts new keys', () => {
+    const test = store<{ value: number; later?: string }>({ value: 1 })
+    const subscriber = vi.fn()
+    watch(() => {
+      subscriber(test?.later)
+    })
+    subscriber.mockClear()
+
+    test.later = 'hello'
+
+    expect(subscriber).toHaveBeenCalled()
+  })
+
+  it('binds this to parent proxy', () => {
+    const test = store({
+      nested: {
+        value: 1,
+        get doubled() {
+          return this.value * 2
+        },
+      },
+    })
+
+    expect(test.nested.doubled).toBe(2)
+  })
+
+  it('works with arrow functions', () => {
+    const test = store({
+      value: 1,
+      doubled: () => {
+        return test.value * 2
+      },
+    })
+
+    expect(test.doubled()).toBe(2)
+  })
+
+  it('allows setting new methods', () => {
+    const test = store({
+      value: 1,
+      changeValue() {
+        this.value = 2
+      },
+    })
+    const subscriber = vi.fn()
+    watch(() => {
+      subscriber(test.changeValue)
+    })
+    subscriber.mockClear()
+
+    test.changeValue = () => {
+      test.value = 3
+    }
+
+    expect(subscriber).toHaveBeenCalled()
+
+    test.changeValue()
+
+    expect(test.value).toBe(3)
+  })
+
+  it('works with detached references', () => {
+    const test = store({ nested: { value: 1 } })
+    const { nested } = test
+    const subscriber = vi.fn()
+    watch(() => {
+      subscriber(nested.value)
+    })
+    subscriber.mockClear()
+
+    test.nested = { value: 2 }
+
+    expect(subscriber).toHaveBeenCalledWith(2)
+  })
+
+  it('works with arrays', () => {
+    const test = store({ list: [1, 2, 3] })
+    const subscriber = vi.fn()
+    watch(() => {
+      subscriber(test.list)
+    })
+    subscriber.mockClear()
+
+    test.list = [4, 5, 6]
+
+    expect(subscriber).toHaveBeenCalled()
+  })
+
+  it('returns all raw signals when accessing $ property', () => {
+    const test = store({ value: 1, nested: { value: 2 }, arr: [1, 2, 3] })
+
+    expect(test.$?.value.get()).toBe(test.value)
+    expect(test.nested.$?.value.get()).toBe(test.nested.value)
+    expect(test.$?.nested.get().$?.value.get()).toBe(test.nested.value)
+    expect(test.arr.$?.[1].get()).toBe(test.arr[1])
+  })
 })

@@ -1,4 +1,11 @@
-import { Computed, Writable, batch, computed, state } from './Observable'
+import {
+  Computed,
+  Observable,
+  Writable,
+  batch,
+  computed,
+  state,
+} from './Observable'
 
 type IfEquals<X, Y, A, B> = (<T>() => T extends X ? 1 : 2) extends <
   T
@@ -16,32 +23,35 @@ type WritableKeysOf<T> = {
 }[keyof T]
 
 type Store<T> = {
-  [K in keyof T]: K extends WritableKeysOf<T>
-    ? T[K] extends Object
-      ? Writable<Store<T[K]>>
-      : Writable<T[K]>
-    : Computed<T[K]>
+  [K in keyof T]: T[K] extends Function
+    ? T[K]
+    : T[K] extends Object
+    ? Store<T[K]>
+    : T[K]
+} & {
+  $?: {
+    [K in keyof T]: K extends WritableKeysOf<T>
+      ? T[K] extends Object
+        ? Writable<Store<T[K]>>
+        : Writable<T[K]>
+      : Computed<T[K]>
+  }
 }
 
 /* 
 TODO:
+- Figure out how to remove the ? from the $ property without assignment type errors
 - Handle setters?
-- Provide a function to just transform object into observables?
- - Provide a way to access underlying observable methods from store?
-- Observable registry:
- - Store observables by an arbitrary ID else fallback to UUID. This would allow
-   for observables to track each other by ID rather than by reference, so that
-   they can be replaced in nested objects, and so they can be serialized. e.g.
-
-   const someStore = { a: { nested: 2 }}
-   const { nested } = someStore.a.get()
-   // if nested is passed by reference to a child component, and someStore.a.nested
-   // gets replaced, then the child component will still be subscribed to the old
-   // nested observable. If nested is tracked by ID, then it can be replaced and
-   // the child component will still be subscribed to the new nested observable
-   To think about, should the same Observable be used and its value merely updated
-   or should a new Observable be created and the old one unsubscribed from?
-   Also, should we not wrap objects in observables? 
+- Provide peek function for inside store declarations? e.g.
+  const store = store({
+    width: 1,
+    height: 2,
+    get area() {
+      return peek(this.width) * this.height
+    },
+  })
+- Test for memory leaks and junk
+- Better array support
 */
 
 /**
@@ -67,57 +77,83 @@ TODO:
  * store.area // 6
  * ```
  */
-export const store = <T extends Object>(initialState: T) => {
-  const createObjectWrapper = (obj: any) => {
-    const result = Object.create(null)
-    const wrapMethod =
-      (method: Function) =>
-      (...args: any[]) => {
-        let returned: any
-        batch(() => {
-          returned = method.call(result, args)
-        })
-        return returned
-      }
-
+export const store = <T extends object>(initialState: T) => {
+  const signalMap: { [keyPath: string]: Observable<any> } = {}
+  const recursivelyUpdateSignals = (obj: any, keyPathPrefix = '') => {
     Object.keys(obj).forEach((key) => {
-      const descriptor = Object.getOwnPropertyDescriptor(obj, key)!
-      if (descriptor.get) {
-        const prop = computed(descriptor.get!.bind(result))
-        Object.defineProperty(result, key, {
-          enumerable: true,
-          get() {
-            return prop.get!()
-          },
-        })
-        return
+      const keyPath = `${keyPathPrefix}.${key}`
+      const signal = signalMap[keyPath]
+      if (signal instanceof Writable) {
+        signal.set(obj[key])
       } else {
-        let value = descriptor.value
-        if (typeof value === 'function') {
-          value = wrapMethod(value)
-        } else if (value instanceof Object) {
-          value = createObjectWrapper(value)
-        }
-        const prop = state(value)
-        Object.defineProperty(result, key, {
-          enumerable: true,
-          get() {
-            return prop.get()
-          },
-          set(value) {
-            let newValue = value
-            if (typeof value === 'function') {
-              newValue = wrapMethod(value)
-            } else if (newValue instanceof Object) {
-              newValue = createObjectWrapper(value)
-            }
-            prop.set(newValue)
-          },
-        })
+        signalMap[keyPath] = state(obj[key])
       }
+      if (obj[key] instanceof Object) {
+        recursivelyUpdateSignals(obj[key], keyPath)
+      }
+    })
+  }
+
+  const createProxy = (obj: any, keyPathPrefix = '') => {
+    const getSignal = (target: any, key: string | symbol) => {
+      const keyPath = `${keyPathPrefix}.${key.toString()}`
+      if (signalMap[keyPath]) {
+        return signalMap[keyPath]
+      }
+      const descriptor = Object.getOwnPropertyDescriptor(target, key)
+      if (descriptor?.get) {
+        const signal = (signalMap[keyPath] = computed(
+          descriptor.get.bind(result)
+        ))
+        return signal
+      } else {
+        let value = target[key]
+        if (value instanceof Object) {
+          value = createProxy(value, keyPath)
+        }
+        const signal = (signalMap[keyPath] = state(value))
+        return signal
+      }
+    }
+    const result: any = new Proxy(obj, {
+      get(target, key) {
+        // Provides a way to access all signals on the object
+        // e.g. store.someSignal = store.$?.someSignal.get()
+        if (key === '$') {
+          return new Proxy(target, {
+            get(target, key) {
+              return getSignal(target, key)
+            },
+          })
+        }
+        return getSignal(target, key).get()
+      },
+      set(_, key, value) {
+        const keyPath = `${keyPathPrefix}.${key.toString()}`
+        const signal = signalMap[keyPath]
+        let newValue = value
+        batch(() => {
+          if (value instanceof Object) {
+            newValue = createProxy(value, keyPath)
+            recursivelyUpdateSignals(value, keyPath)
+          }
+          if (signal instanceof Writable) {
+            signal.set(newValue)
+          } else {
+            signalMap[keyPath] = state(newValue)
+          }
+        })
+        return true
+      },
+      apply(target, thisArg, argArray) {
+        let result
+        batch(() => {
+          result = target.apply(thisArg, argArray)
+        })
+        return result
+      },
     })
     return result
   }
-  const result = createObjectWrapper(initialState) as T
-  return result
+  return createProxy(initialState) as Store<T>
 }
