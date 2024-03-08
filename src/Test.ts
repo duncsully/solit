@@ -2,23 +2,8 @@ import { styleMap } from 'lit/directives/style-map.js'
 import { Writable, computed, state } from './Observable'
 import { repeat } from 'lit/directives/repeat.js'
 import { html } from './html'
-import { render } from 'lit'
 import { component, effect } from './component'
 import { when } from 'lit/directives/when.js'
-
-/*
-How it works:
-A "component" is just a function that returns an html template. Optionally
-it can accept props which come in two forms:
-    * Static values - These don't change between template renders. Think of
-        them as "configurations" or SSR props.
-    * Sates - These are values that can change between renders. They are
-        "reactive" and will surgically update the templates wherever they
-        are used.
-
-It can also call effects, which are just functions that run when the
-component is mounted and when any of its states change.
-*/
 
 export const Test = component((label: string, start: number = 0) => {
   const count = state(start, { name: 'count' })
@@ -219,9 +204,8 @@ const EffectTest = component(() => {
     <button @click=${() => showingSubtemplate.update((current) => !current)}>
       Toggle subtemplate
     </button>
-    <button @click=${() => count.update((value) => value + 1)}>
-      Increment
-    </button>
+    <button @click=${() => (count.value += 1)}>Increment</button>
+    <p>count: ${count}</p>
     <div>template 1</div>
     ${() => when(showingSubtemplate.get(), () => subtemplate)}
   `
@@ -231,11 +215,8 @@ export const App = () => {
   return EffectTest()
 }
 
-render(App(), document.body)
-
 /*
 To do:
-- Consider how router would work, especially prefetching
 - Post-render effects without using ref?
 - Batch undo? Any change to a state should be undoable, and
   any changes during a batch should all be undoable in one go.
