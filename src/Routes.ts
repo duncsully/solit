@@ -24,6 +24,8 @@ type RouteMap<T> = {
 // TODO better type checking to prevent invalid routes
 // TODO Way to load data before returning for SSR?
 // TODO hash routing option
+// TODO * parts
+// TODO test route priority
 
 const startingPath = state(window.location.pathname)
 const remainingPath = state(window.location.pathname)
@@ -74,7 +76,7 @@ export const navigate = (path: string) => {
  * ```ts
  * const routes = Routes({
  *   '': Home,
- *   users: () =>
+ *   'users/': () =>
  *     Routes({
  *       '': UsersList,
  *       ':userId/': ({ userId }) =>
