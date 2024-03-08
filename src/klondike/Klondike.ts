@@ -1,5 +1,5 @@
 import { styleMap } from 'lit/directives/style-map.js'
-import { Writable, computed, state } from '../Observable'
+import { Writable, batch, computed, state } from '../Observable'
 import { html } from '../html'
 import { Card, Rank, Suit } from './Card'
 import { repeat } from 'lit/directives/repeat.js'
@@ -51,16 +51,18 @@ export const Klondike = component(() => {
   )
   const waste = state<Pile>(hash ? savedWaste : [])
   const handleStockClick = () => {
-    if (stock.get().length === 0) {
-      stock.set([...waste.get().reverse()])
-      waste.set([])
-    } else {
-      const card = stock.get().at(-1)!
-      stock.update((current) => [...current.slice(0, -1)])
-      waste.update((current) => [...current, card])
-    }
-    selectedPile.set(waste)
-    selectedNegativeIndex.set(-1)
+    batch(() => {
+      if (stock.get().length === 0) {
+        stock.set([...waste.get().reverse()])
+        waste.set([])
+      } else {
+        const card = stock.get().at(-1)!
+        stock.update((current) => [...current.slice(0, -1)])
+        waste.update((current) => [...current, card])
+      }
+      selectedPile.set(waste)
+      selectedNegativeIndex.set(-1)
+    })
   }
 
   /** Negative for use with .at() to make it easier to treat arrays as stacks */
@@ -72,8 +74,10 @@ export const Klondike = component(() => {
   )
 
   const handleWasteClick = () => {
-    selectedPile.set(waste)
-    selectedNegativeIndex.set(-1)
+    batch(() => {
+      selectedPile.set(waste)
+      selectedNegativeIndex.set(-1)
+    })
   }
 
   const foundationPiles = Array.from({ length: 4 }, (_, i) =>
@@ -88,18 +92,22 @@ export const Klondike = component(() => {
       !emptyFoundation && getSuit(cardToMove) === getSuit(foundationCard)
     const rankValid =
       !emptyFoundation && getValue(cardToMove) === getValue(foundationCard) + 1
-    if (
-      selectedNegativeIndex.get() === -1 &&
-      ((isAce && emptyFoundation) || (suitsMatch && rankValid))
-    ) {
-      selectedPile.get().update((current) => [...current.slice(0, -1)])
-      foundationPile.update((current) => [...current, cardToMove])
-      selectedPile.set(waste)
-      selectedNegativeIndex.set(-1)
-    } else {
-      selectedNegativeIndex.set(-1)
-      selectedPile.set(foundationPile)
-    }
+
+    batch(() => {
+      if (
+        selectedNegativeIndex.get() === -1 &&
+        ((isAce && emptyFoundation) || (suitsMatch && rankValid))
+      ) {
+        selectedPile.get().update((current) => [...current.slice(0, -1)])
+        foundationPile.update((current) => [...current, cardToMove])
+        selectedPile.set(waste)
+        selectedNegativeIndex.set(-1)
+      } else {
+        selectedNegativeIndex.set(-1)
+        selectedPile.set(foundationPile)
+      }
+    })
+
     return false
   }
 
@@ -109,10 +117,12 @@ export const Klondike = component(() => {
   // Deal cards to tableau
   // Technically not how it's supposed to be done, but it's easier to implement
   if (!hash) {
-    tableau.forEach((pile, i) => {
-      const cards = stock.get().slice(0, i + 1)
-      pile.set(cards)
-      stock.update((current) => [...current.slice(i + 1)])
+    batch(() => {
+      tableau.forEach((pile, i) => {
+        const cards = stock.get().slice(0, i + 1)
+        pile.set(cards)
+        stock.update((current) => [...current.slice(i + 1)])
+      })
     })
   }
 
@@ -158,17 +168,21 @@ export const Klondike = component(() => {
         : getValue(card) === 0
     )
     if (foundationPile) {
-      pile.update((current) => [...current.slice(0, -1)])
-      foundationPile.update((current) => [...current, card])
+      batch(() => {
+        pile.update((current) => [...current.slice(0, -1)])
+        foundationPile.update((current) => [...current, card])
+      })
     }
   }
 
   // Automatically flip last card in tableau piles
   effect(() => {
-    tableau.forEach((pile, i) => {
-      if (tableauFlippedIndices[i].get() >= pile.get().length) {
-        tableauFlippedIndices[i].set(pile.get().length - 1)
-      }
+    batch(() => {
+      tableau.forEach((pile, i) => {
+        if (tableauFlippedIndices[i].get() >= pile.get().length) {
+          tableauFlippedIndices[i].set(pile.get().length - 1)
+        }
+      })
     })
   })
 
