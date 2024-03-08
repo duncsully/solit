@@ -23,12 +23,12 @@ type RouteMap<T> = {
 
 // TODO better type checking to prevent invalid routes
 // TODO Way to load data before returning for SSR?
-// TODO hash routing option
 // TODO * parts
 // TODO test route priority
+// TODO optional route param
 
-const startingPath = state(window.location.pathname)
-const remainingPath = state(window.location.pathname)
+const startingPath = state(window.location.hash.slice(1))
+const remainingPath = state(window.location.hash.slice(1))
 const setPath = (path: string) => {
   batch(() => {
     startingPath.set(path)
@@ -36,9 +36,11 @@ const setPath = (path: string) => {
   })
 }
 
-window.addEventListener('popstate', () => {
+let historyRouting = false
+export const setupHistoryRouting = () => {
+  historyRouting = true
   setPath(window.location.pathname)
-})
+}
 
 window.addEventListener('click', (e) => {
   if (
@@ -46,13 +48,28 @@ window.addEventListener('click', (e) => {
     e.target.href.startsWith(window.location.origin)
   ) {
     e.preventDefault()
-    window.history.pushState({}, '', e.target.href)
+    if (historyRouting) {
+      window.history.pushState({}, '', e.target.href)
+    } else {
+      window.location.hash = e.target.pathname
+    }
+
     setPath(e.target.pathname)
   }
 })
+window.addEventListener('popstate', () => {
+  setPath(
+    historyRouting ? window.location.pathname : window.location.hash.slice(1)
+  )
+})
 
 export const navigate = (path: string) => {
-  window.history.pushState({}, '', path)
+  if (historyRouting) {
+    window.history.pushState({}, '', path)
+  } else {
+    window.location.hash = path
+  }
+
   setPath(path)
 }
 
