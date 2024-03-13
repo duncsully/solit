@@ -1,17 +1,22 @@
 import { observe } from './ObserveDirective'
-import { AsyncDirective, PartType, directive } from 'lit/async-directive.js'
+import {
+  AsyncDirective,
+  PartInfo,
+  PartType,
+  directive,
+} from 'lit/async-directive.js'
 import { batch, computed } from '../Observable'
 
 class FunctionDirective extends AsyncDirective {
-  constructor(partInfo: any) {
+  constructor(partInfo: PartInfo) {
     super(partInfo)
-    if (partInfo.type === PartType.EVENT) {
-      this.run = false
-    }
+    this.shouldCompute = partInfo.type !== PartType.EVENT
   }
-  run = true
+
+  shouldCompute: boolean
+
   render(func: Function) {
-    return this.run
+    return this.shouldCompute
       ? observe(computed(func as () => void))
       : (...forward: unknown[]) => {
           let result: unknown
