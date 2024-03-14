@@ -3,16 +3,28 @@ import { Component } from './component'
 import { html } from './html'
 import { batch, computed, state } from './Observable'
 
+type ParamIfRequired<T> = T extends `${string}?` ? never : T
+type ParamIfOptional<T> = T extends `${infer Param}?` ? Param : never
+
 // type for extracting params from path
 type PathParams<T extends string | number | symbol> =
   T extends `${string}:${infer Param}/${infer Rest}`
-    ? Param | PathParams<Rest>
+    ? ParamIfRequired<Param> | PathParams<Rest>
     : T extends `${string}:${infer Param}`
-    ? Param
+    ? ParamIfRequired<Param>
+    : never
+
+type OptionalPathParams<T extends string | number | symbol> =
+  T extends `${string}:${infer Param}/${infer Rest}`
+    ? ParamIfOptional<Param> | OptionalPathParams<Rest>
+    : T extends `${string}:${infer Param}`
+    ? ParamIfOptional<Param>
     : never
 
 type ParamMap<T extends string> = {
   [K in PathParams<T>]: string
+} & {
+  [K in OptionalPathParams<T>]?: string
 }
 
 type RouteMap<T> = {
@@ -21,11 +33,14 @@ type RouteMap<T> = {
     : never
 }
 
+// TODO handle explicit * parts
 // TODO better type checking to prevent invalid routes
 // TODO Way to load data before returning for SSR?
-// TODO * parts
-// TODO test route priority
-// TODO optional route param
+// TODO types for * parts
+// TODO test route priority, probably ought to sort them by specificity
+
+// @ts-ignore
+globalThis.URLPattern ??= await import('urlpattern-polyfill')
 
 const startingPath = state(window.location.hash.slice(1))
 const remainingPath = state(window.location.hash.slice(1))
@@ -76,12 +91,12 @@ export const navigate = (path: string) => {
 /**
  * Define a set of routes.
  *
- * Keys are a part of the path, and values are the component to render.
+ * Keys are the whole or part of the path, and values are the component to render.
  *
- * Parts ending in / are treated as a directory, and will match any path that starts with the part.
+ * Keys ending in / are treated as a directory, and will match any path that starts with the key.
  * Routes can be nested to create a tree of routes. Nested routes will match off of the remaining path.
  *
- * And empty string will match the index for the route.
+ * An empty string will match the index for the route.
  *
  * Parts starting with : are treated as a parameter, and will match any path part. These will be passed
  * to the component as a prop.
@@ -121,15 +136,16 @@ export const Routes = <T>(routes: RouteMap<T>) => {
 
     let returnVal = nothing
     Object.keys(routes).some((route) => {
-      const paramExtractingRegex = new RegExp(
-        `^\/?${route.replace(/:(\w+)/g, '(?<$1>\\w+)')}${
-          route.endsWith('/') ? '?(.*)' : '$'
-        }`
-      )
-      const match = path.match(paramExtractingRegex)
+      const formattedRoute = `${route.startsWith('/') ? '' : '/'}${route}${
+        route.endsWith('/') ? '*?' : ''
+      }`
+      const pattern = new URLPattern({
+        pathname: formattedRoute,
+      })
+      const match = pattern.exec({ pathname: path })
       if (match) {
-        remainingPath.set(match.at(-1)!)
-        returnVal = routes[route](match.groups)
+        remainingPath.set(`/${match.pathname.groups[0] ?? ''}`)
+        returnVal = routes[route](match.pathname.groups)
       }
     })
     return returnVal
