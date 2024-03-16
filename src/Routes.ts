@@ -1,7 +1,8 @@
 import { nothing } from 'lit'
 import { Component } from './component'
 import { html } from './html'
-import { batch, computed, state } from './Observable'
+import { State, batch, computed, state } from './Observable'
+import { store } from './store'
 
 type ParamIfRequired<T> = T extends `${string}?` ? never : T
 type ParamIfOptional<T> = T extends `${infer Param}?` ? Param : never
@@ -22,9 +23,9 @@ type OptionalPathParams<T extends string | number | symbol> =
     : never
 
 type ParamMap<T extends string> = {
-  [K in PathParams<T>]: string
+  [K in PathParams<T>]: State<string>
 } & {
-  [K in OptionalPathParams<T>]?: string
+  [K in OptionalPathParams<T>]: State<string | undefined>
 }
 
 type RouteMap<T> = {
@@ -33,21 +34,17 @@ type RouteMap<T> = {
     : never
 }
 
-// TODO handle explicit * parts
 // TODO better type checking to prevent invalid routes
 // TODO Way to load data before returning for SSR?
-// TODO types for * parts
-// TODO test route priority, probably ought to sort them by specificity
+// TODO types for modifiers * and +
 
 // @ts-ignore
 globalThis.URLPattern ??= await import('urlpattern-polyfill')
 
-const startingPath = state(window.location.hash.slice(1))
-const remainingPath = state(window.location.hash.slice(1))
+const currentPath = state(window.location.hash.slice(1))
 const setPath = (path: string) => {
   batch(() => {
-    startingPath.set(path)
-    remainingPath.set(path)
+    currentPath.set(path)
   })
 }
 
@@ -88,67 +85,113 @@ export const navigate = (path: string) => {
   setPath(path)
 }
 
+const isStaticSegment = (segment: string) =>
+  !segment.startsWith(':') && segment !== '*'
+
+const compareSegments = (a: string[], b: string[], index = 0) => {
+  if (index === a.length) {
+    return b.at(-1)!.length - a.at(-1)!.length
+  }
+  const aSegmentStatic = isStaticSegment(a[index] ?? '')
+  const bSegmentStatic = isStaticSegment(b[index] ?? '')
+
+  if (aSegmentStatic === bSegmentStatic) {
+    return compareSegments(a, b, index + 1)
+  }
+  return aSegmentStatic ? -1 : 1
+}
+
+const sortPaths = (paths: string[]) =>
+  paths.sort((a, b) => {
+    const aParts = a.split('/')
+    const bParts = b.split('/')
+    if (aParts.length !== bParts.length) {
+      return bParts.length - aParts.length
+    }
+    return compareSegments(aParts, bParts)
+  })
+
 /**
- * Define a set of routes.
+ * Router component for choosing a route based on the provided path.
  *
- * Keys are the whole or part of the path, and values are the component to render.
+ * First argument is an object of keys representing the path to match, and values representing the component to render.
  *
- * Keys ending in / are treated as a directory, and will match any path that starts with the key.
- * Routes can be nested to create a tree of routes. Nested routes will match off of the remaining path.
+ * Uses [URLPattern](https://developer.mozilla.org/en-US/docs/Web/API/URL_Pattern_API)
+ * to handle path matching. Passes the groups from the match to the component as an object
+ * of signals.
  *
- * An empty string will match the index for the route.
+ * tl;dr:
+ * - '' matches an empty segment (i.e. the index), slash or no slash
+ * - '*' matches everything (slash required, else '*?' makes the slash optional), passing an object with the key `0` as a signal with the value of the matched path.
+ * - ':param' matches a route segment if present and passes an object with the key `param` as a signal with the value of the matched param.
+ * - ':param?' matches a route segment, present or not, and passes an object with the key `param` as a signal with the value of the matched param, or undefined if not present.
  *
- * Parts starting with : are treated as a parameter, and will match any path part. These will be passed
- * to the component as a prop.
- *
- * @param routes
+ * The second argument defaults to the current path signal used by the router navigation functions. You can optionally
+ * pass a different signal, e.g. the remaining unprocessed path from a parent router for a nested router.
  *
  * @example
  *
  * ```ts
- * const routes = Routes({
+ * Router({
  *   '': Home,
- *   'users/': () =>
- *     Routes({
+ *   'user/*?': (params) =>
+ *     Router({
  *       '': UsersList,
- *       ':userId/': ({ userId }) =>
- *         Routes({
- *           '': () => UserDetails({ userId }),
- *           'posts/': () =>
- *            Routes({
- *              '': UserPosts({ userId }),
- *              ':postId': ({ postId }) => PostDetails({ userId, postId }),
- *            }),
- *         }),
- *       }),
- *     })
- *   })
+ *       ':id': ({ id }) => UserDetail(id),
+ *       'me': MyProfile,
+ *     }, params[0]),
+ *  'about': About,
+ *  '*': NotFound,
+ * })
  * ```
+ *
+ * @param routes An object of keys representing the path to match, and values representing the component to render.
+ * @param path The path to match against.
+ * @returns The component whose path matches the provided path.
  */
-export const Routes = <T>(routes: RouteMap<T>) => {
-  const route = computed(() => {
-    // If the remaining path is the same as the starting path, then we are at the root Routes component
-    // and it should react to changes in the starting path.
-    const path =
-      remainingPath.peek() === startingPath.peek()
-        ? startingPath.get()
-        : remainingPath.peek()
+export const Router = <T>(
+  routes: RouteMap<T>,
+  path: State<string> = currentPath
+) => {
+  const params = store({} as any)
+  let activePath: string | undefined = undefined
+  let returnVal = nothing
 
-    let returnVal = nothing
-    Object.keys(routes).some((route) => {
-      const formattedRoute = `${route.startsWith('/') ? '' : '/'}${route}${
-        route.endsWith('/') ? '*?' : ''
-      }`
+  const activeRoute = computed(() => {
+    if (activePath !== undefined) {
+      const activePathPattern = new URLPattern({
+        pathname: activePath,
+      })
+      const match = activePathPattern.exec({ pathname: path.get() ?? '/' })
+
+      if (match) {
+        Object.entries(match.pathname.groups).forEach(([key, value]) => {
+          params[key] = value
+        })
+        return returnVal
+      }
+    }
+
+    const formattedPath = `${path.get()?.startsWith('/') ? '' : '/'}${
+      path.get() ?? ''
+    }`
+
+    sortPaths(Object.keys(routes)).some((route) => {
+      const formattedRoute = `${route.startsWith('/') ? '' : '/'}${route}`
       const pattern = new URLPattern({
         pathname: formattedRoute,
       })
-      const match = pattern.exec({ pathname: path })
+      const match = pattern.exec({ pathname: formattedPath })
       if (match) {
-        remainingPath.set(`/${match.pathname.groups[0] ?? ''}`)
-        returnVal = routes[route](match.pathname.groups)
+        activePath = formattedRoute
+        Object.entries(match.pathname.groups).forEach(([key, value]) => {
+          params[key] = value
+        })
+        returnVal = routes[route](params.$)
+        return true
       }
     })
     return returnVal
   })
-  return html`${route}`
+  return html`${activeRoute}`
 }

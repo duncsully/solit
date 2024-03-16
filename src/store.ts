@@ -29,7 +29,7 @@ type Store<T> = {
     ? Store<T[K]>
     : T[K]
 } & {
-  $?: {
+  readonly $?: {
     [K in keyof T]: K extends WritableKeysOf<T>
       ? T[K] extends Object
         ? Writable<Store<T[K]>>
@@ -52,6 +52,7 @@ TODO:
   })
 - Test for memory leaks and junk
 - Better array support
+- Undo/redo/reset support?
 */
 
 /**
