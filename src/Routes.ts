@@ -1,6 +1,5 @@
 import { nothing } from 'lit'
 import { Component } from './component'
-import { html } from './html'
 import { State, batch, computed, state } from './Observable'
 import { store } from './store'
 
@@ -154,44 +153,27 @@ export const Router = <T>(
   path: State<string> = currentPath
 ) => {
   const params = store({} as any)
-  let activePath: string | undefined = undefined
-  let returnVal = nothing
 
-  const activeRoute = computed(() => {
-    if (activePath !== undefined) {
-      const activePathPattern = new URLPattern({
-        pathname: activePath,
-      })
-      const match = activePathPattern.exec({ pathname: path.get() ?? '/' })
-
-      if (match) {
-        Object.entries(match.pathname.groups).forEach(([key, value]) => {
-          params[key] = value
-        })
-        return returnVal
-      }
-    }
-
+  const activePath = computed(() => {
     const formattedPath = `${path.get()?.startsWith('/') ? '' : '/'}${
       path.get() ?? ''
     }`
 
-    sortPaths(Object.keys(routes)).some((route) => {
+    return sortPaths(Object.keys(routes)).find((route) => {
       const formattedRoute = `${route.startsWith('/') ? '' : '/'}${route}`
       const pattern = new URLPattern({
         pathname: formattedRoute,
       })
       const match = pattern.exec({ pathname: formattedPath })
       if (match) {
-        activePath = formattedRoute
+        // TODO: side effect here, move out somehow?
         Object.entries(match.pathname.groups).forEach(([key, value]) => {
           params[key] = value
         })
-        returnVal = routes[route](params.$)
-        return true
+        return formattedRoute
       }
     })
-    return returnVal
   })
-  return html`${activeRoute}`
+
+  return computed(() => routes[activePath.get() ?? '']?.(params.$) ?? nothing)
 }
