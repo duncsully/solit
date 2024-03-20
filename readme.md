@@ -89,6 +89,15 @@ const increment = () => (count.value += 1)
 const increment = () => count.update((current) => current + 1)
 ```
 
+If you prefer the Solid way of doing things, you can use an array destructuring assignment to get the `get` and `set` methods directly.
+
+```ts
+const [getCount, setCount] = signal(0)
+const [getDoubled] = computed(() => getCount() * 2)
+
+setCount(getCount() + 1)
+```
+
 Computed signals are optimized to only compute when their values are requested, either by calling their `get()` or `peek()` method directly or if they have subscribers, and then by default this value is memoized for as long as dependencies don't update.
 
 ## Stores

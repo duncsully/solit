@@ -246,6 +246,15 @@ describe('Computed', () => {
         expect(subscriber).not.toHaveBeenCalled()
       })
     })
+
+    describe('iterator', () => {
+      it('returns its get method when array destructured', () => {
+        const aComputed = new Computed(() => 5)
+        const [get] = aComputed
+
+        expect(get).toBe(aComputed.get)
+      })
+    })
   })
 
   // Not important to the API contract, but important for behavior, e.g. performance
@@ -372,7 +381,7 @@ describe('Computed', () => {
   })
 })
 
-describe('Writable', () => {
+describe('Signal', () => {
   describe('value', () => {
     it('getter returns primitive value passed to the constructor', () => {
       const number = new Signal(1)
@@ -442,6 +451,16 @@ describe('Writable', () => {
       array.mutate((value) => value.push('d'))
 
       expect(subscriber).toHaveBeenCalledWith(['a', 'b', 'c', 'd'])
+    })
+  })
+
+  describe('iterator', () => {
+    it('returns its get and set methods when array destructured', () => {
+      const aSignal = new Signal(5)
+      const [get, set] = aSignal
+
+      expect(get).toBe(aSignal.get)
+      expect(set).toBe(aSignal.set)
     })
   })
 

@@ -223,6 +223,10 @@ export class Computed<T> extends SignalBase<T> {
     }
   }
 
+  [Symbol.iterator]() {
+    return [this.get].values()
+  }
+
   protected computeValue() {
     SignalBase.context.push(this)
     this._lastDependencies.forEach((dependency) => {
@@ -330,6 +334,10 @@ export class Signal<T> extends SignalBase<T> {
    */
   reset = () => {
     this.set(this._initialValue)
+  };
+
+  [Symbol.iterator]() {
+    return [this.get, this.set].values()
   }
 
   protected requestUpdate() {
