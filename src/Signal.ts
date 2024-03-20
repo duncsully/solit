@@ -1,6 +1,6 @@
 export type Subscriber<T> = (value: T) => void
 
-export type ObservableOptions<T> = {
+export type SignalOptions<T> = {
   /**
    * Function that determines if the new value is different from the current value.
    * By default, uses Object.is
@@ -20,12 +20,12 @@ export const notEqual = <T>(
 /**
  * How it works
  *
- * - Computed observables track what observables they depend on via Observable.get()
+ * - Computed signals track what signals they depend on via .get()
  *
- * - Writables are what get directly interacted with. Computed observables can only
+ * - WritableSignals are what get directly interacted with. Computed signals can only
  *   change when a writable changes.
  *
- * - A computed observable only needs to be computed if its value is actually read,
+ * - A computed signal only needs to be computed if its value is actually read,
  *   either directly or if there are subscribers and a dependency changes, informing
  *   it that it might need to recompute.
  *
@@ -35,21 +35,18 @@ export const notEqual = <T>(
  *
  * - Writable sets can be batched, so that if multiple writables are changed, subscribers
  *   are only updated once after all the writes have happened, and only for what
- *   Observables have actually changed. This means that a computed value may need to
+ *   signals have actually changed. This means that a computed value may need to
  *   be recomputed, but its value may not have changed, so it won't need to update subscribers
  */
 
 /**
- * Core observable class that allows subscribing to changes,
+ * Core signal class that allows subscribing to changes,
  * reading values, and responding to changes
  */
-export class Observable<T> {
+export class SignalBase<T> {
   static context: Computed<any>[] = []
 
-  constructor(
-    protected _value: T,
-    protected _options: ObservableOptions<T> = {}
-  ) {
+  constructor(protected _value: T, protected _options: SignalOptions<T> = {}) {
     this._lastBroadcastValue = _value
   }
 
@@ -87,8 +84,8 @@ export class Observable<T> {
   }
 
   /**
-   * Get the current value without setting this observable as a dependency
-   * of the calling computed observable
+   * Get the current value without setting this signal as a dependency
+   * of the calling computed signal
    */
   peek() {
     this._lastBroadcastValue = this._value
@@ -96,11 +93,11 @@ export class Observable<T> {
   }
 
   /**
-   * Get the current value and set this observable as a dependency of the
-   * calling computed observable
+   * Get the current value and set this signal as a dependency of the
+   * calling computed signal
    */
   get() {
-    const caller = Observable.context.at(-1)
+    const caller = SignalBase.context.at(-1)
     const value = this.peek()
     if (caller) {
       this._dependents.add(caller._selfRef)
@@ -148,10 +145,10 @@ export class Observable<T> {
 
 type CachedResult<T> = {
   value: T
-  dependencies: Map<Observable<any>, any>
+  dependencies: Map<SignalBase<any>, any>
 }
 
-export type ComputedOptions<T> = ObservableOptions<T> & {
+export type ComputedOptions<T> = SignalOptions<T> & {
   /**
    * Cache this number of previous computations. When given the same dependency
    * values as in the cache, cache value is used
@@ -165,10 +162,10 @@ export type ComputedOptions<T> = ObservableOptions<T> & {
 }
 
 /**
- * A computed observable that tracks dependencies and updates lazily
+ * A computed signal that tracks dependencies and updates lazily
  * when they change if there are subscribers
  */
-export class Computed<T> extends Observable<T> {
+export class Computed<T> extends SignalBase<T> {
   constructor(protected getter: () => T, options: ComputedOptions<T> = {}) {
     const { cacheSize = 1, computeOnIdle = false, ..._options } = options
     super(undefined as T, _options)
@@ -211,7 +208,7 @@ export class Computed<T> extends Observable<T> {
     return super.peek()
   }
 
-  setCacheDependency = (dependency: Observable<any>, value: any) => {
+  setCacheDependency = (dependency: SignalBase<any>, value: any) => {
     this._lastDependencies.add(dependency)
     const lastCache = this._cache[0]
     if (lastCache) {
@@ -227,7 +224,7 @@ export class Computed<T> extends Observable<T> {
   }
 
   protected computeValue() {
-    Observable.context.push(this)
+    SignalBase.context.push(this)
     this._lastDependencies.forEach((dependency) => {
       dependency.removeDependent(this._selfRef)
     })
@@ -242,7 +239,7 @@ export class Computed<T> extends Observable<T> {
     this._value = this.getter()
     const lastCache = this._cache[0]
     if (lastCache) lastCache.value = this._value
-    Observable.context.pop()
+    SignalBase.context.pop()
   }
 
   protected requestIdleComputed() {
@@ -259,34 +256,34 @@ export class Computed<T> extends Observable<T> {
   protected _cache = [] as CachedResult<T>[]
   protected _computeOnIdle = false
   protected _idleCallbackHandle: number | undefined
-  protected _lastDependencies = new Set<Observable<any>>()
+  protected _lastDependencies = new Set<SignalBase<any>>()
 }
 
 /**
- * A writable observable that allows setting a new value and can be
- * tracked by Computed observables
+ * A writable signal that allows setting a new value and can be
+ * tracked by Computed signals
  */
-export class Writable<T> extends Observable<T> {
-  static batchedUpdateChecks: null | Set<Writable<any>>
+export class Signal<T> extends SignalBase<T> {
+  static batchedUpdateChecks: null | Set<Signal<any>>
   /**
    * All subscription updates will be deferred until after passed action has run,
    * preventing a subscriber from being updated multiple times for multiple
-   * writable observable write operations
+   * writable signal write operations
    */
   static batch(action: () => void) {
     // If there is already a set, this is a nested call, don't flush until we
     // return to the top level
-    const flush = !Writable.batchedUpdateChecks
-    Writable.batchedUpdateChecks ??= new Set()
+    const flush = !Signal.batchedUpdateChecks
+    Signal.batchedUpdateChecks ??= new Set()
     action()
     if (flush) {
-      Writable.batchedUpdateChecks?.forEach((observable) => {
-        observable.updateSubscribers()
+      Signal.batchedUpdateChecks?.forEach((signal) => {
+        signal.updateSubscribers()
       })
-      Writable.batchedUpdateChecks = null
+      Signal.batchedUpdateChecks = null
     }
   }
-  constructor(protected _initialValue: T, _options: ObservableOptions<T> = {}) {
+  constructor(protected _initialValue: T, _options: SignalOptions<T> = {}) {
     super(_initialValue, _options)
   }
 
@@ -336,44 +333,42 @@ export class Writable<T> extends Observable<T> {
   }
 
   protected requestUpdate() {
-    if (Writable.batchedUpdateChecks) {
-      Writable.batchedUpdateChecks.add(this)
+    if (Signal.batchedUpdateChecks) {
+      Signal.batchedUpdateChecks.add(this)
     } else {
       this.updateSubscribers()
     }
   }
 }
 
-export type State<T> = Writable<T>
-
 /**
- * Creates a writable observable that allows setting a new value and can be
- * tracked by computed observables
- * @param value - The initial value of the observable
+ * Creates a writable signal that allows setting a new value and can be
+ * tracked by computed signals
+ * @param value - The initial value of the signal
  * @param options
  * @returns
  * @example
  * ```ts
- * const count = state(0)
+ * const count = signal(0)
  * count.set(1) // 1
  * count.update(value => value + 1) // 2
  * count.reset() // 0
  * ```
  */
-export const state = <T>(value: T, options?: ObservableOptions<T>) =>
-  new Writable(value, options) as State<T>
+export const signal = <T>(value: T, options?: SignalOptions<T>) =>
+  new Signal(value, options) as Signal<T>
 
 /**
- * Creates a computed observable that tracks dependencies, can be tracked by
- * other computed observables, and updates lazily
- * @param getter - The function that computes the value of the observable,
- *  tracking any dependencies with `Observable.get()` and ignoring any
- *  read with `Observable.peek()`
+ * Creates a computed signal that tracks signal dependencies, can be tracked by
+ * other computed signals, and updates lazily
+ * @param getter - The function that computes the value of the signal,
+ *  tracking any dependencies with `.get()` and ignoring any
+ *  read with `.peek()`
  * @param options
  * @returns
  * @example
  * ```ts
- * const count = state(0)
+ * const count = signal(0)
  * const doubled = computed(() => count.get() * 2)
  * ```
  */
@@ -383,12 +378,12 @@ export const computed = <T>(getter: () => T, options?: ComputedOptions<T>) =>
 /**
  * Defer checking for subscription updates until passed action has run,
  * preventing a subscriber from being updated multiple times for multiple
- * writable observable write operations, and only if the final value has
+ * signal write operations, and only if the final value has
  * changed
  * @example
  * ```ts
- * const height = state(2)
- * const width = state(6)
+ * const height = signal(2)
+ * const width = signal(6)
  * const area = computed(() => height.get() * width.get())
  *
  * batch(() => {
@@ -399,12 +394,12 @@ export const computed = <T>(getter: () => T, options?: ComputedOptions<T>) =>
  * })
  * ```
  */
-export const batch = Writable.batch
+export const batch = Signal.batch
 
 export type Effect = () => void | (() => void)
 
 /**
- * Call the passed callback immediately and whenever any of its observable
+ * Call the passed callback immediately and whenever any of its signal
  * dependencies change. Optionally return a cleanup function and it will be
  * called before the next time the callback is called or when the watcher is
  * unsubscribed.

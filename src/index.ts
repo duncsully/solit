@@ -1,4 +1,4 @@
-export * from './Observable'
+export * from './Signal'
 export * from './html'
 export { render } from 'lit-html'
 export * from './component'

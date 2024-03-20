@@ -1,6 +1,6 @@
 import { nothing } from 'lit'
 import { Component } from './component'
-import { State, batch, computed, state } from './Observable'
+import { Signal, batch, computed, signal } from './Signal'
 import { store } from './store'
 
 type ParamIfRequired<T> = T extends `${string}?` ? never : T
@@ -22,9 +22,9 @@ type OptionalPathParams<T extends string | number | symbol> =
     : never
 
 type ParamMap<T extends string> = {
-  [K in PathParams<T>]: State<string>
+  [K in PathParams<T>]: Signal<string>
 } & {
-  [K in OptionalPathParams<T>]: State<string | undefined>
+  [K in OptionalPathParams<T>]: Signal<string | undefined>
 }
 
 type RouteMap<T> = {
@@ -40,7 +40,7 @@ type RouteMap<T> = {
 // @ts-ignore
 globalThis.URLPattern ??= await import('urlpattern-polyfill')
 
-const currentPath = state(window.location.hash.slice(1))
+const currentPath = signal(window.location.hash.slice(1))
 const setPath = (path: string) => {
   batch(() => {
     currentPath.set(path)
@@ -120,10 +120,10 @@ const sortPaths = (paths: string[]) =>
  * of signals.
  *
  * tl;dr:
- * - '' matches an empty segment (i.e. the index), slash or no slash
- * - '*' matches everything (slash required, else '*?' makes the slash optional), passing an object with the key `0` as a signal with the value of the matched path.
- * - ':param' matches a route segment if present and passes an object with the key `param` as a signal with the value of the matched param.
- * - ':param?' matches a route segment, present or not, and passes an object with the key `param` as a signal with the value of the matched param, or undefined if not present.
+ * - `''` matches an empty segment (i.e. the index), slash or no slash
+ * - `'*'` matches everything (slash required, else '*?' makes the slash optional), passing an object with the key `0` as a signal with the value of the matched path.
+ * - `':param'` matches a route segment if present and passes an object with the key `param` as a signal with the value of the matched param.
+ * - `':param?'` matches a route segment, present or not, and passes an object with the key `param` as a signal with the value of the matched param, or undefined if not present.
  *
  * The second argument defaults to the current path signal used by the router navigation functions. You can optionally
  * pass a different signal, e.g. the remaining unprocessed path from a parent router for a nested router.
@@ -150,7 +150,7 @@ const sortPaths = (paths: string[]) =>
  */
 export const Router = <T>(
   routes: RouteMap<T>,
-  path: State<string> = currentPath
+  path: Signal<string> = currentPath
 ) => {
   const params = store({} as any)
 

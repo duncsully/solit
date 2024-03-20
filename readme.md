@@ -5,8 +5,8 @@ Solid, but with lit-html. "Components" are just functions that setup reactive li
 Only six primitives are needed to build reactive components:
 
 - `component(templateFactory)` - a function to turn a template factory into a component with a lifecycle
-- `state(initialValue)` - a writable signal that tracks its dependents
-- `computed(getter)` - a read-only signal that tracks its dependents and is lazily evaluated
+- `signal(initialValue)` - a writable signal that can be tracked by computed signals and effects
+- `computed(getter)` - a computed signal that tracks its dependencies, can be tracked itself, and is lazily evaluated
 - `effect(callback)` - a callback that is run when its dependencies change, optionally running a returned cleanup callback
 - `html` - a template literal tagging function to build reactive lit-html templates for generating DOM
 - `render(template, container)` - a function that renders a template to a container
@@ -14,16 +14,16 @@ Only six primitives are needed to build reactive components:
 ```ts
 import {
   component,
-  state,
+  signal,
   computed,
   effect,
   html,
   render,
-  type State,
+  Signal,
 } from 'solit'
 
 const Counter = component(() => {
-  const count = state(0)
+  const count = signal(0)
 
   const increment = () => count.update((current) => current + 1)
 
@@ -41,7 +41,7 @@ const Counter = component(() => {
   `
 })
 
-const Doubled = component(({ count }: { count: State<number> }) => {
+const Doubled = component(({ count }: { count: Signal<number> }) => {
   // Automatically tracks dependency `count`
   const doubled = computed(() => count.get() * 2)
 
@@ -64,7 +64,7 @@ render(Counter(), document.body)
 
 ## Signals
 
-Signals are the state management solution in SoLit. There are writable signals created with `state(initialValue)` and computed signals created with `computed(getter)`. They both have the following common methods:
+Signals are the state management solution in SoLit. There are writable signals created with `signal(initialValue)` and computed signals created with `computed(getter)`. They both have the following common methods:
 
 - `get()` - returns the current value. When used inside of a computed signal's getter, an effect, or a function inside of a template, the signal is automatically tracked as a dependency.
 - `peek()` - returns the current value without tracking it as a dependency
@@ -82,7 +82,7 @@ Writable signals additionally have the following methods:
 Additionally, signals have a `value` property that wraps the `get` method and `set` method for writable signals. You may find this more familiar or convenient in certain cases.
 
 ```ts
-const count = state(0)
+const count = signal(0)
 
 const increment = () => (count.value += 1)
 // vs
@@ -124,8 +124,9 @@ Templates are built using a slightly enhanced version of lit-html. The `html` te
 Signals are considered changed using Object.is by default. You can override this behavior by passing a custom `hasChanged` option.
 
 ```ts
-const array = state([1], {
-  hasChanged: (a, b) => a.some((value, i) => value !== b[i]),
+const array = signal([1], {
+  hasChanged: (a, b) =>
+    a.length !== b.length || a.some((value, i) => value !== b[i]),
 })
 
 array.set([1]) // no change
@@ -139,7 +140,7 @@ You can use the `mutate` method to request an update after running the callback.
 
 ```ts
 let prev = []
-const array = state([1], {
+const array = signal([1], {
   hasChanged: (_, next) => {
     const changed =
       prev.length !== next.length || prev.some((value, i) => value !== next[i])
@@ -155,12 +156,12 @@ array.mutate((current) => current.sort()) // will request update but has not cha
 
 #### Memoization
 
-Computed signals by default only memoize the value for the most recent dependency values (i.e. it will only compute once for the current set of dependencies). That means that if the dependencies change, even to a set of values that were previously computed, the computed signal will need to recompute. You can optionally choose to store more than one previous computations by passing an integer larger than one to the `cacheSize` option to save that many computations. When a value is read from cache, it is moved up to the front of the cache so that it is not removed until it is the oldest value in the cache.
+Computed signals by default only memoize the value for the most recent dependency values (i.e. it will only compute once for the current set of dependencies). That means that if the dependencies change, even to a set of values that were previously computed, the computed signal will need to recompute. You can optionally choose to store more than one previous computations by passing an integer larger than `1` to the `cacheSize` option to save that many computations. When a value is read from cache, it is moved up to the front of the cache so that it is not removed until it is the oldest value in the cache.
 
 Alternatively, if you want to prevent memoization and always recompute values, you can pass `cacheSize: 0`.
 
 ```ts
-const count = state(0)
+const count = signal(0)
 const doubled = computed(() => count.get() * 2, { cache: 3 }) // A super expensive computation, right?
 doubled.subscribe(console.log) // Computed 1st time -> 0, cached 0 -> 0
 count.set(1) // Computed 2nd time -> 2, cached 0 -> 0, 1 -> 2
@@ -182,7 +183,7 @@ Computed signals are normally evaluated lazily, computing only when their value 
 If you want to expose a writable signal's value to another component but don't want to allow it to update the value, you can either pass only the `get` method or you can wrap it in a computed signal.
 
 ```ts
-const count = state(0)
+const count = signal(0)
 
 const getter = count.get
 const readonlyCount = computed(count.get)

@@ -5,7 +5,7 @@ import {
   PartType,
   directive,
 } from 'lit/async-directive.js'
-import { batch, computed } from '../Observable'
+import { batch, computed } from '../Signal'
 
 class FunctionDirective extends AsyncDirective {
   constructor(partInfo: PartInfo) {

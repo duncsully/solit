@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { store } from './store'
-import { computed, state, watch } from './Observable'
+import { computed, signal, watch } from './Signal'
 
 describe('store', () => {
   it('allows reading properties', () => {
@@ -95,7 +95,7 @@ describe('store', () => {
   })
 
   it('works with signals', () => {
-    const count = state(0)
+    const count = signal(0)
     const test = store({
       name: 'alfred',
       get doubled() {

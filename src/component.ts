@@ -1,4 +1,4 @@
-import { Effect, watch } from './Observable'
+import { Effect, watch } from './Signal'
 import { TemplateResult } from 'lit-html'
 import { Directive, PartInfo, directive } from 'lit/directive.js'
 

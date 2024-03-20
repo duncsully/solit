@@ -1,11 +1,4 @@
-import {
-  Computed,
-  Observable,
-  Writable,
-  batch,
-  computed,
-  state,
-} from './Observable'
+import { Computed, SignalBase, Signal, batch, computed, signal } from './Signal'
 
 type IfEquals<X, Y, A, B> = (<T>() => T extends X ? 1 : 2) extends <
   T
@@ -32,8 +25,8 @@ type Store<T> = {
   readonly $?: {
     [K in keyof T]: K extends WritableKeysOf<T>
       ? T[K] extends Object
-        ? Writable<Store<T[K]>>
-        : Writable<T[K]>
+        ? Signal<Store<T[K]>>
+        : Signal<T[K]>
       : Computed<T[K]>
   }
 }
@@ -79,15 +72,15 @@ TODO:
  * ```
  */
 export const store = <T extends object>(initialState: T) => {
-  const signalMap: { [keyPath: string]: Observable<any> } = {}
+  const signalMap: { [keyPath: string]: SignalBase<any> } = {}
   const recursivelyUpdateSignals = (obj: any, keyPathPrefix = '') => {
     Object.keys(obj).forEach((key) => {
       const keyPath = `${keyPathPrefix}.${key}`
-      const signal = signalMap[keyPath]
-      if (signal instanceof Writable) {
-        signal.set(obj[key])
+      const sig = signalMap[keyPath]
+      if (sig instanceof Signal) {
+        sig.set(obj[key])
       } else {
-        signalMap[keyPath] = state(obj[key])
+        signalMap[keyPath] = signal(obj[key])
       }
       if (obj[key] instanceof Object) {
         recursivelyUpdateSignals(obj[key], keyPath)
@@ -112,8 +105,8 @@ export const store = <T extends object>(initialState: T) => {
         if (value instanceof Object) {
           value = createProxy(value, keyPath)
         }
-        const signal = (signalMap[keyPath] = state(value))
-        return signal
+        const sig = (signalMap[keyPath] = signal(value))
+        return sig
       }
     }
     const result: any = new Proxy(obj, {
@@ -131,17 +124,17 @@ export const store = <T extends object>(initialState: T) => {
       },
       set(_, key, value) {
         const keyPath = `${keyPathPrefix}.${key.toString()}`
-        const signal = signalMap[keyPath]
+        const sig = signalMap[keyPath]
         let newValue = value
         batch(() => {
           if (value instanceof Object) {
             newValue = createProxy(value, keyPath)
             recursivelyUpdateSignals(value, keyPath)
           }
-          if (signal instanceof Writable) {
-            signal.set(newValue)
+          if (sig instanceof Signal) {
+            sig.set(newValue)
           } else {
-            signalMap[keyPath] = state(newValue)
+            signalMap[keyPath] = signal(newValue)
           }
         })
         return true

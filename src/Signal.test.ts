@@ -1,11 +1,11 @@
-import { batch, Computed, computed, state, watch, Writable } from './Observable'
+import { batch, Computed, computed, signal, watch, Signal } from './Signal'
 import { describe, it, expect, vi } from 'vitest'
 
 describe('Computed', () => {
   describe('constructor', () => {
     describe('cacheSize', () => {
       it('caches previous results up to provided cacheSize value', () => {
-        const number = new Writable(1)
+        const number = new Signal(1)
         const getter = vi.fn(() => number.get() * 2)
         const doubled = new Computed(getter, { cacheSize: 2 })
         // Cache with number = 1
@@ -46,7 +46,7 @@ describe('Computed', () => {
       })
 
       it('moves cache hits to the front of the cache', () => {
-        const number = new Writable(1)
+        const number = new Signal(1)
         const getter = vi.fn(() => number.get() * 2)
         const doubled = new Computed(getter, { cacheSize: 3 })
         doubled.subscribe(vi.fn())
@@ -74,7 +74,7 @@ describe('Computed', () => {
       })
 
       it('prevents memoization when set to 0', () => {
-        const number = new Writable(1)
+        const number = new Signal(1)
         const getter = vi.fn(() => number.get() * 2)
         const doubled = new Computed(getter, { cacheSize: 0 })
         doubled.get()
@@ -88,7 +88,7 @@ describe('Computed', () => {
     // TODO: Not sure if this will actually pass when it can run
     describe.skipIf(!globalThis.requestIdleCallback)('computeOnIdle', () => {
       it('computes value on idle callback', async () => {
-        const number = new Writable(1)
+        const number = new Signal(1)
         const getter = vi.fn(() => number.get() * 2)
         const doubled = new Computed(getter, { computeOnIdle: true })
 
@@ -130,7 +130,7 @@ describe('Computed', () => {
 
     describe('peek', () => {
       it('returns return value of function passed to constructor and does not update dependent Computeds', () => {
-        const number = new Writable(2)
+        const number = new Signal(2)
         const doubled = new Computed(() => number.get() * 2)
         const quadrupledOnce = new Computed(() => doubled.peek() * 2)
         quadrupledOnce.get()
@@ -143,7 +143,7 @@ describe('Computed', () => {
 
     describe('observe', () => {
       it('calls all callbacks provided if value changes', () => {
-        const number = new Writable(1)
+        const number = new Signal(1)
         const doubled = new Computed(() => number.get() * 2)
         const subscriber1 = vi.fn()
         doubled.observe(subscriber1)
@@ -157,7 +157,7 @@ describe('Computed', () => {
       })
 
       it("calls nested computed subscribers if a dependent's dependencies change", () => {
-        const number = new Writable(1)
+        const number = new Signal(1)
         const doubled = new Computed(() => number.get() * 2)
         const quadrupled = new Computed(() => doubled.get() * 2)
         const subscriber = vi.fn()
@@ -173,7 +173,7 @@ describe('Computed', () => {
       })
 
       it('does not call callback immediately', () => {
-        const number = new Writable(1)
+        const number = new Signal(1)
         const doubled = new Computed(() => number.get() * 2)
         const subscriber = vi.fn()
         doubled.observe(subscriber)
@@ -182,7 +182,7 @@ describe('Computed', () => {
       })
 
       it('returns a function that unsubscribes the passed callback', () => {
-        const number = new Writable(1)
+        const number = new Signal(1)
         const doubled = new Computed(() => number.get() * 2)
         const subscriber = vi.fn()
         const unsubscribe = doubled.observe(subscriber)
@@ -197,7 +197,7 @@ describe('Computed', () => {
 
     describe('subscribe', () => {
       it('calls all callbacks provided if value changes', () => {
-        const number = new Writable(1)
+        const number = new Signal(1)
         const doubled = new Computed(() => number.get() * 2)
         const subscriber1 = vi.fn()
         doubled.subscribe(subscriber1)
@@ -211,7 +211,7 @@ describe('Computed', () => {
       })
 
       it('calls callback immediately with current value', () => {
-        const number = new Writable(1)
+        const number = new Signal(1)
         const doubled = new Computed(() => number.get() * 2)
         const subscriber = vi.fn()
         doubled.subscribe(subscriber)
@@ -220,7 +220,7 @@ describe('Computed', () => {
       })
 
       it('returns a function that unsubscribes the passed callback', () => {
-        const number = new Writable(1)
+        const number = new Signal(1)
         const doubled = new Computed(() => number.get() * 2)
         const subscriber = vi.fn()
         const unsubscribe = doubled.subscribe(subscriber)
@@ -236,7 +236,7 @@ describe('Computed', () => {
 
     describe('unsubscribe', () => {
       it('removes passed callback from subscriptions', () => {
-        const number = new Writable(1)
+        const number = new Signal(1)
         const doubled = new Computed(() => number.get() * 2)
         const subscriber = vi.fn()
         doubled.observe(subscriber)
@@ -251,7 +251,7 @@ describe('Computed', () => {
   // Not important to the API contract, but important for behavior, e.g. performance
   describe('implementation details', () => {
     it('calls subscribers when dependencies change', () => {
-      const number = new Writable(1)
+      const number = new Signal(1)
       const squared = new Computed(() => number.get() ** 2)
       const cubed = new Computed(() => number.get() ** 3)
 
@@ -266,7 +266,7 @@ describe('Computed', () => {
     })
 
     it('does not recompute data until dependencies change (i.e. is memoized)', () => {
-      const array = new Writable(['a', 'b', 'c'])
+      const array = new Signal(['a', 'b', 'c'])
       const getterCheck = vi.fn()
       const sorted = new Computed(() => {
         getterCheck()
@@ -286,7 +286,7 @@ describe('Computed', () => {
     })
 
     it('does not update if recomputed value still the same after dependencies change', () => {
-      const float = new Writable(1.1)
+      const float = new Signal(1.1)
       const floored = new Computed(() => Math.floor(float.get()))
       const doubledFloored = new Computed(() => floored.get() * 2)
 
@@ -303,7 +303,7 @@ describe('Computed', () => {
     })
 
     it('lazily evaluates getters', () => {
-      const array = new Writable(['a', 'b', 'c'])
+      const array = new Signal(['a', 'b', 'c'])
       const getterCheck = vi.fn()
       const sorted = new Computed(() => {
         getterCheck()
@@ -332,8 +332,8 @@ describe('Computed', () => {
 
     it(`works with getters that do not call all dependencies (i.e. conditionals) even 
     if subscribing after conditional would expose new dependencies`, () => {
-      const number = new Writable(1)
-      const laterNumber = new Writable(2)
+      const number = new Signal(1)
+      const laterNumber = new Signal(2)
       const conditionalComputed = new Computed(() => {
         if (number.get() > 2) {
           return laterNumber.get()
@@ -350,9 +350,9 @@ describe('Computed', () => {
     })
 
     it('stops tracking dependencies that were not called in previous computation', () => {
-      const firstNumber = new Writable(1)
-      const secondNumber = new Writable(2)
-      const lever = new Writable(true)
+      const firstNumber = new Signal(1)
+      const secondNumber = new Signal(2)
+      const lever = new Signal(true)
       const computation = vi.fn(() => {
         if (lever.get()) {
           return firstNumber.get()
@@ -375,13 +375,13 @@ describe('Computed', () => {
 describe('Writable', () => {
   describe('value', () => {
     it('getter returns primitive value passed to the constructor', () => {
-      const number = new Writable(1)
+      const number = new Signal(1)
 
       expect(number.value).toBe(1)
     })
 
     it('setter sets a new primitive value', () => {
-      const number = new Writable(1)
+      const number = new Signal(1)
 
       number.value = 2
 
@@ -391,7 +391,7 @@ describe('Writable', () => {
 
   describe('get', () => {
     it('returns the primitive value passed to the constructor', () => {
-      const number = new Writable(1)
+      const number = new Signal(1)
 
       expect(number.get()).toBe(1)
     })
@@ -399,7 +399,7 @@ describe('Writable', () => {
 
   describe('peek', () => {
     it('returns the primitive value passed to the constructor and does not update dependent Computeds', () => {
-      const number = new Writable(1)
+      const number = new Signal(1)
 
       expect(number.peek()).toBe(1)
 
@@ -413,7 +413,7 @@ describe('Writable', () => {
 
   describe('set', () => {
     it('sets a new primitive value', () => {
-      const number = new Writable(1)
+      const number = new Signal(1)
 
       number.set(2)
 
@@ -423,7 +423,7 @@ describe('Writable', () => {
 
   describe('update', () => {
     it('sets a new primitive value returned by passed function', () => {
-      const nubbin = new Writable(1)
+      const nubbin = new Signal(1)
 
       nubbin.update((value) => ++value)
 
@@ -433,7 +433,7 @@ describe('Writable', () => {
 
   describe('mutate', () => {
     it('checks for update even if value reference is the same', () => {
-      const array = new Writable(['a', 'b', 'c'], {
+      const array = new Signal(['a', 'b', 'c'], {
         hasChanged: () => true,
       })
       const subscriber = vi.fn()
@@ -447,7 +447,7 @@ describe('Writable', () => {
 
   describe('observe + set', () => {
     it('calls all callbacks provided to subscribe method if value changed', () => {
-      const number = new Writable(1)
+      const number = new Signal(1)
 
       const subscriber1 = vi.fn()
       number.observe(subscriber1)
@@ -460,7 +460,7 @@ describe('Writable', () => {
     })
 
     it('does not call all callbacks if value did not change (using default hasChanged)', () => {
-      const number = new Writable(1)
+      const number = new Signal(1)
 
       const subscriber = vi.fn()
       number.observe(subscriber)
@@ -470,7 +470,7 @@ describe('Writable', () => {
     })
 
     it('can have change check configured with hasChanged option', () => {
-      const list = new Writable(['beans', 'chicken'], {
+      const list = new Signal(['beans', 'chicken'], {
         hasChanged: (current, next) =>
           next.some((value, i) => current?.[i] !== value),
       })
@@ -485,7 +485,7 @@ describe('Writable', () => {
 
   describe('unsubscribe', () => {
     it('removes passed callback from subscriptions', () => {
-      const number = new Writable(1)
+      const number = new Signal(1)
 
       const subscriber = vi.fn()
       number.observe(subscriber)
@@ -496,7 +496,7 @@ describe('Writable', () => {
     })
 
     it('is also returned by observe method', () => {
-      const number = new Writable(1)
+      const number = new Signal(1)
 
       const subscriber = vi.fn()
       const unsubscribe = number.observe(subscriber)
@@ -509,7 +509,7 @@ describe('Writable', () => {
 
   describe('subscribe', () => {
     it('calls subscriber immediately with current value', () => {
-      const number = new Writable(1)
+      const number = new Signal(1)
       const subscriber1 = vi.fn()
 
       number.subscribe(subscriber1)
@@ -527,8 +527,8 @@ describe('Writable', () => {
 
 describe('batch', () => {
   it('defers subscription updates until after all actions (nested included) finish', () => {
-    const number = new Writable(1)
-    const string = new Writable('hi')
+    const number = new Signal(1)
+    const string = new Signal('hi')
     const subscriber = vi.fn()
     number.observe(subscriber)
     string.observe(subscriber)
@@ -546,8 +546,8 @@ describe('batch', () => {
   })
 
   it('does not recompute Computeds if dependencies not updated', () => {
-    const width = new Writable(1)
-    const length = new Writable(10)
+    const width = new Signal(1)
+    const length = new Signal(10)
     const getterCheck = vi.fn(() => width.get() * length.get())
     const area = new Computed(getterCheck)
     area.get()
@@ -564,7 +564,7 @@ describe('batch', () => {
   })
 
   it('will not update writable subscribers if its value after all operations has not changed', () => {
-    const number = new Writable(1)
+    const number = new Signal(1)
     const subscriber = vi.fn()
     number.observe(subscriber)
 
@@ -578,8 +578,8 @@ describe('batch', () => {
   })
 
   it("will not update dependents' subscribers if its value after all operations has not changed", () => {
-    const width = new Writable(1)
-    const height = new Writable(10)
+    const width = new Signal(1)
+    const height = new Signal(10)
     const area = new Computed(() => width.get() * height.get())
     const subscriber = vi.fn()
     area.subscribe(subscriber)
@@ -594,15 +594,15 @@ describe('batch', () => {
   })
 
   it('works if Computed dependent is read during the same action any of its dependencies are updated in', () => {
-    const width = new Writable(1, { name: 'width' })
-    const length = new Writable(10, { name: 'length' })
+    const width = new Signal(1, { name: 'width' })
+    const length = new Signal(10, { name: 'length' })
     const area = new Computed(() => width.get() * length.get(), {
       name: 'area',
     })
     const perimeter = new Computed(() => width.get() * 2 + length.get() * 2, {
       name: 'perimeter',
     })
-    const height = new Writable(2, { name: 'height' })
+    const height = new Signal(2, { name: 'height' })
     const getterCheck = vi.fn(() => area.get() * height.get())
     const volume = new Computed(getterCheck, { name: 'volume' })
     volume.subscribe(vi.fn())
@@ -630,8 +630,8 @@ describe('batch', () => {
 
 describe('state', () => {
   it('returns a Writable instance', () => {
-    const someState = state(1)
-    expect(someState instanceof Writable).toBeTruthy()
+    const someState = signal(1)
+    expect(someState instanceof Signal).toBeTruthy()
   })
 })
 
@@ -645,7 +645,7 @@ describe('computed', () => {
 
 describe('watch', () => {
   it('runs the callback immediately', () => {
-    const number = state(1)
+    const number = signal(1)
     const squared = computed(() => number.get() ** 2)
     const effectFn = vi.fn(() => {
       squared.get()
@@ -656,7 +656,7 @@ describe('watch', () => {
   })
 
   it('runs the callback when any of its dependencies change', () => {
-    const number = state(1)
+    const number = signal(1)
     const squared = computed(() => number.get() ** 2)
     const effectFn = vi.fn(() => {
       squared.get()
