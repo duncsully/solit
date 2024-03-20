@@ -1,5 +1,5 @@
 import { styleMap } from 'lit/directives/style-map.js'
-import { Writable, batch, computed, state } from '../Observable'
+import { Signal, batch, computed, signal } from '../Signal'
 import { html } from '../html'
 import { Card, Rank, Suit } from './Card'
 import { repeat } from 'lit/directives/repeat.js'
@@ -44,12 +44,12 @@ export const Klondike = component(() => {
     return adjustedString.split('').map(getCardId)
   })
 
-  const stock = state<Pile>(
+  const stock = signal<Pile>(
     hash
       ? savedStock
       : Array.from({ length: 52 }, (_, i) => i).sort(() => Math.random() - 0.5)
   )
-  const waste = state<Pile>(hash ? savedWaste : [])
+  const waste = signal<Pile>(hash ? savedWaste : [])
   const handleStockClick = () => {
     batch(() => {
       if (stock.get().length === 0) {
@@ -66,8 +66,8 @@ export const Klondike = component(() => {
   }
 
   /** Negative for use with .at() to make it easier to treat arrays as stacks */
-  const selectedNegativeIndex = state(-1)
-  const selectedPile = state(waste)
+  const selectedNegativeIndex = signal(-1)
+  const selectedPile = signal(waste)
 
   const selectedCard = computed(
     () => selectedPile.get().get().at(selectedNegativeIndex.get())!
@@ -81,9 +81,9 @@ export const Klondike = component(() => {
   }
 
   const foundationPiles = Array.from({ length: 4 }, (_, i) =>
-    state<Pile>(hash ? savedFoundation[i] : [])
+    signal<Pile>(hash ? savedFoundation[i] : [])
   )
-  const makeHandleFoundationClick = (foundationPile: Writable<Pile>) => () => {
+  const makeHandleFoundationClick = (foundationPile: Signal<Pile>) => () => {
     const cardToMove = selectedCard.get()
     const foundationCard = foundationPile.get().at(-1)
     const emptyFoundation = foundationCard === undefined
@@ -112,7 +112,7 @@ export const Klondike = component(() => {
   }
 
   const tableau = Array.from({ length: 7 }, (_, i) =>
-    state<Pile>(hash ? savedTableau[i] : [])
+    signal<Pile>(hash ? savedTableau[i] : [])
   )
   // Deal cards to tableau
   // Technically not how it's supposed to be done, but it's easier to implement
@@ -156,10 +156,10 @@ export const Klondike = component(() => {
     }
   }
   const tableauFlippedIndices = tableau.map((_, i) =>
-    state(hash ? savedTableauFlippedIndices[i] : i)
+    signal(hash ? savedTableauFlippedIndices[i] : i)
   )
 
-  const handleDoubleClick = (pile: Writable<Pile>) => {
+  const handleDoubleClick = (pile: Signal<Pile>) => {
     const card = pile.get().at(-1)!
     const foundationPile = foundationPiles.find((foundation) =>
       foundation.get().length
@@ -231,7 +231,7 @@ export const Klondike = component(() => {
    * can't be sure why the hash changed. This state is used to ignore the popstate event
    * when we know it was triggered by a hash change we made vs browser history navigation.
    */
-  const ignorePop = state<boolean | undefined>(undefined)
+  const ignorePop = signal<boolean | undefined>(undefined)
 
   // Serialize state to hash with card IDs represented by upper and lowercase letters
   effect(() => {
