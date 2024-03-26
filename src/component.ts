@@ -1,6 +1,8 @@
+import { noChange } from 'lit'
 import { Effect, watch } from './Signal'
 import { TemplateResult } from 'lit-html'
-import { Directive, PartInfo, directive } from 'lit/directive.js'
+import { directive } from 'lit/directive.js'
+import { AsyncDirective } from 'lit/async-directive.js'
 
 const effectContext = [] as Effect[][]
 
@@ -49,29 +51,31 @@ export type Component<T extends unknown[]> = (...args: T) => TemplateResult
  * })
  * ```
  */
-export const component =
-  <T extends unknown[]>(
-    templateFactory: (...args: T) => TemplateResult
-  ): Component<T> =>
-  (...props: T) => {
-    effectContext.push([])
-    const template = templateFactory(...props)
-    const effects = effectContext.pop()!
-
-    class ComponentDirective extends Directive {
+export const component = <T extends unknown[]>(
+  templateFactory: (...args: T) => TemplateResult
+) =>
+  directive(
+    class extends AsyncDirective {
       cleanups: ReturnType<Effect>[] = []
+      effects: Effect[] = []
+      rendered = false
 
-      constructor(partInfo: PartInfo) {
-        super(partInfo)
-        this.runEffects()
-      }
-
-      render() {
-        return template
+      render(...props: T) {
+        if (!this.rendered) {
+          effectContext.push([])
+          const template = templateFactory(...props)
+          this.effects = effectContext.pop()!
+          this.runEffects()
+          this.rendered = true
+          return template
+        }
+        return noChange
       }
 
       runEffects() {
-        this.cleanups = effects.map((effectCb) => watch(effectCb, 'effect'))
+        this.cleanups = this.effects.map((effectCb) =>
+          watch(effectCb, 'effect')
+        )
       }
 
       disconnected(): void {
@@ -82,5 +86,4 @@ export const component =
         this.runEffects()
       }
     }
-    return directive(ComponentDirective)() as TemplateResult
-  }
+  ) as Component<T>
