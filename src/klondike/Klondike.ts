@@ -138,7 +138,10 @@ export const Klondike = component(() => {
       !emptyPile && getValue(cardToMove) === getValue(tableauCard!) - 1
     const samePile = selectedPile.get() === tableau[pileIndex]
 
-    if ((isKing && emptyPile) || (alternateColors && rankValid && !samePile)) {
+    if (
+      (isKing && emptyPile) ||
+      (alternateColors && rankValid && !samePile && cardNegativeIndex === -1)
+    ) {
       tableau[pileIndex].update((current) => [
         ...current,
         ...selectedPile.get().get().slice(selectedNegativeIndex.get()),
