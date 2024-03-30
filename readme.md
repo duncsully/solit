@@ -185,6 +185,58 @@ Computed signals are normally evaluated lazily, computing only when their value 
 
 **Note:** This requires having `cacheSize` set to at least 1.
 
+#### computedGroup - Computing multiple values in one calculation
+
+Sometimes you may want to create multiple computed signals that depend on the same calculation. For example, if you had a todo list that you wanted to separate into complete and incomplete todos, it'd be inefficient to filter the list twice. Instead, you can use `computedGroup` to compute multiple values in one calculation. Simply pass in your getter function that returns an object or array with the computed values, and it will return an object or array of computed signals respectively. They can be tracked individually like any other computed signal, so if a calculation only affects one of the values, only that computed signal will update its subscribers.
+
+```ts
+const todos = signal([
+  { text: 'Learn JavaScript', complete: true },
+  { text: 'Learn SoLit', complete: true },
+  { text: 'Build something with SoLit', complete: false },
+  { text: 'Contribute to SoLit', complete: false },
+])
+
+const handleKeyUp = (e: KeyboardEvent) => {
+  if (e.key === 'Enter') {
+    todos.update((current) => [
+      ...current,
+      { text: e.target.value, complete: false },
+    ])
+  }
+}
+
+const { complete, incomplete } = computedGroup(() =>
+  todos.get().reduce(
+    (acc, todo) => {
+      if (todo.complete) {
+        acc.complete.push(todo)
+      } else {
+        acc.incomplete.push(todo)
+      }
+      return acc
+    },
+    { complete: [], incomplete: [] }
+  )
+)
+
+return html`
+  <div>
+    <h2>Complete</h2>
+    <ul>
+      <!-- Adding an incomplete todo won't rerender this -->
+      ${() => complete.get().map((todo) => html`<li>${todo.text}</li>`)}
+    </ul>
+    <h2>Incomplete</h2>
+    <ul>
+      <!-- But this will get rerendered -->
+      ${() => incomplete.get().map((todo) => html`<li>${todo.text}</li>`)}
+    </ul>
+    <input type="text" @keyup=${handleKeyUp} />
+  </div>
+`
+```
+
 ## Recipes
 
 #### Readonly state
