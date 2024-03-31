@@ -59,6 +59,7 @@ export const Card = ({
         borderRadius: '0.75rem',
         zIndex: selected ? '1' : '0',
         position: 'relative',
+        userSelect: 'none',
       })}
     >
       <div
