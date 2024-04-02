@@ -15,6 +15,14 @@ import { component, effect } from '../component'
 // Support 3 card draw
 // Responsiveness
 
+function shuffleArray<T extends unknown[]>(array: T) {
+  for (let i = array.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[array[i], array[j]] = [array[j], array[i]]
+  }
+  return array
+}
+
 type Pile = number[]
 
 export const Klondike = component(() => {
@@ -45,9 +53,7 @@ export const Klondike = component(() => {
   })
 
   const stock = signal<Pile>(
-    hash
-      ? savedStock
-      : Array.from({ length: 52 }, (_, i) => i).sort(() => Math.random() - 0.5)
+    hash ? savedStock : shuffleArray(Array.from({ length: 52 }, (_, i) => i))
   )
   const waste = signal<Pile>(hash ? savedWaste : [])
   const handleStockClick = () => {
