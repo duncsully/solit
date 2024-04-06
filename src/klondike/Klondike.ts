@@ -57,18 +57,16 @@ export const Klondike = component(() => {
   )
   const waste = signal<Pile>(hash ? savedWaste : [])
   const handleStockClick = () => {
-    batch(() => {
-      if (stock.get().length === 0) {
-        stock.set([...waste.get().reverse()])
-        waste.set([])
-      } else {
-        const card = stock.get().at(-1)!
-        stock.update((current) => [...current.slice(0, -1)])
-        waste.update((current) => [...current, card])
-      }
-      selectedPile.set(waste)
-      selectedNegativeIndex.set(-1)
-    })
+    if (stock.get().length === 0) {
+      stock.set([...waste.get().reverse()])
+      waste.set([])
+    } else {
+      const card = stock.get().at(-1)!
+      stock.update((current) => [...current.slice(0, -1)])
+      waste.update((current) => [...current, card])
+    }
+    selectedPile.set(waste)
+    selectedNegativeIndex.set(-1)
   }
 
   /** Negative for use with .at() to make it easier to treat arrays as stacks */
@@ -80,10 +78,8 @@ export const Klondike = component(() => {
   )
 
   const handleWasteClick = () => {
-    batch(() => {
-      selectedPile.set(waste)
-      selectedNegativeIndex.set(-1)
-    })
+    selectedPile.set(waste)
+    selectedNegativeIndex.set(-1)
   }
 
   const foundationPiles = Array.from({ length: 4 }, (_, i) =>
@@ -99,20 +95,18 @@ export const Klondike = component(() => {
     const rankValid =
       !emptyFoundation && getValue(cardToMove) === getValue(foundationCard) + 1
 
-    batch(() => {
-      if (
-        selectedNegativeIndex.get() === -1 &&
-        ((isAce && emptyFoundation) || (suitsMatch && rankValid))
-      ) {
-        selectedPile.get().update((current) => [...current.slice(0, -1)])
-        foundationPile.update((current) => [...current, cardToMove])
-        selectedPile.set(waste)
-        selectedNegativeIndex.set(-1)
-      } else {
-        selectedNegativeIndex.set(-1)
-        selectedPile.set(foundationPile)
-      }
-    })
+    if (
+      selectedNegativeIndex.get() === -1 &&
+      ((isAce && emptyFoundation) || (suitsMatch && rankValid))
+    ) {
+      selectedPile.get().update((current) => [...current.slice(0, -1)])
+      foundationPile.update((current) => [...current, cardToMove])
+      selectedPile.set(waste)
+      selectedNegativeIndex.set(-1)
+    } else {
+      selectedNegativeIndex.set(-1)
+      selectedPile.set(foundationPile)
+    }
 
     return false
   }
@@ -164,6 +158,7 @@ export const Klondike = component(() => {
       selectedPile.set(tableau[pileIndex])
     }
   }
+
   const tableauFlippedIndices = tableau.map((_, i) =>
     signal(hash ? savedTableauFlippedIndices[i] : i)
   )
@@ -177,13 +172,12 @@ export const Klondike = component(() => {
         : getValue(card) === 0
     )
     if (foundationPile) {
-      batch(() => {
-        pile.update((current) => [...current.slice(0, -1)])
-        foundationPile.update((current) => [...current, card])
-      })
+      pile.update((current) => [...current.slice(0, -1)])
+      foundationPile.update((current) => [...current, card])
     }
   }
 
+  // TODO: Not great that this is a side effect
   // Automatically flip last card in tableau piles
   effect(() => {
     batch(() => {
