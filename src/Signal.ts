@@ -73,6 +73,8 @@ export class SignalBase<T> {
 
     subscriber(this.peek())
 
+    this._lastBroadcastValue = this._value
+
     return unsubscribe
   }
 
@@ -88,7 +90,6 @@ export class SignalBase<T> {
    * of the calling computed signal
    */
   peek() {
-    this._lastBroadcastValue = this._value
     return this._value
   }
 
@@ -100,7 +101,6 @@ export class SignalBase<T> {
     const caller = SignalBase.context.at(-1)
     const value = this.peek()
     if (caller) {
-      this._dependents.add(caller._selfRef)
       caller.setCacheDependency(this, value)
     }
     return value
@@ -113,34 +113,12 @@ export class SignalBase<T> {
       hasChanged(this._lastBroadcastValue, this.peek())
     ) {
       this._subscribers.forEach((subscriber) => subscriber(this._value))
+      this._lastBroadcastValue = this._value
     }
-
-    // Since these may be removed from the set, we need to make a copy
-    // before iterating
-    const dependents = [...this._dependents]
-
-    for (const dependentRef of dependents) {
-      const dependent = dependentRef.deref()
-      if (dependent) {
-        dependent.updateSubscribers()
-      } else {
-        this._dependents.delete(dependentRef)
-      }
-    }
-  }
-
-  addDependent(dependentRef: WeakRef<Computed<any>>) {
-    this._dependents.add(dependentRef)
-  }
-
-  removeDependent(dependentRef: WeakRef<Computed<any>>) {
-    this._dependents.delete(dependentRef)
   }
 
   protected _subscribers = new Set<Subscriber<T>>()
-  protected _dependents = new Set<WeakRef<Computed<any>>>()
   protected _lastBroadcastValue: T | undefined
-  protected _selfRef = new WeakRef(this)
 }
 
 type CachedResult<T> = {
@@ -185,6 +163,16 @@ export class Computed<T> extends SignalBase<T> {
     return unsubscribe
   }
 
+  unsubscribe(subscriber: Subscriber<T>): void {
+    super.unsubscribe(subscriber)
+    // If there are no subscribers, unsubscribe from dependencies
+    // since we don't need to track them anymore. When we get a new
+    // subscriber, we'll recompute and re-subscribe to dependencies.
+    if (!this._subscribers.size) {
+      this._toUnsubscribe.forEach(Reflect.apply)
+    }
+  }
+
   peek = () => {
     if (this._idleCallbackHandle) {
       cancelIdleCallback(this._idleCallbackHandle)
@@ -209,30 +197,34 @@ export class Computed<T> extends SignalBase<T> {
   }
 
   setCacheDependency = (dependency: SignalBase<any>, value: any) => {
-    this._lastDependencies.add(dependency)
+    // Don't bother tracking dependencies if there are no subscribers
+    if (this._subscribers.size) {
+      this._toUnsubscribe.add(dependency.observe(this.updateSubscribers))
+    }
     const lastCache = this._cache[0]
     if (lastCache) {
       lastCache.dependencies.set(dependency, value)
     }
   }
 
-  updateSubscribers() {
+  updateSubscribers = () => {
     super.updateSubscribers()
     if (!this._subscribers.size && this._computeOnIdle) {
       this.requestIdleComputed()
     }
-  }
+  };
 
+  // Allows array destructure assignment e.g. `const [getValue] = computed(() => value)`
   [Symbol.iterator]() {
     return [this.get].values()
   }
 
   protected computeValue() {
     SignalBase.context.push(this)
-    this._lastDependencies.forEach((dependency) => {
-      dependency.removeDependent(this._selfRef)
-    })
-    this._lastDependencies.clear()
+
+    this._toUnsubscribe.forEach(Reflect.apply)
+    this._toUnsubscribe.clear()
+
     if (this._cacheSize) {
       this._cache.unshift({
         value: this._value,
@@ -260,7 +252,7 @@ export class Computed<T> extends SignalBase<T> {
   protected _cache = [] as CachedResult<T>[]
   protected _computeOnIdle = false
   protected _idleCallbackHandle: number | undefined
-  protected _lastDependencies = new Set<SignalBase<any>>()
+  protected _toUnsubscribe = new Set<() => void>()
 }
 
 /**
@@ -336,6 +328,7 @@ export class Signal<T> extends SignalBase<T> {
     this.set(this._initialValue)
   };
 
+  // Allows array destructure assignment e.g. `const [getValue, setValue] = signal(0)`
   [Symbol.iterator]() {
     return [this.get, this.set].values()
   }

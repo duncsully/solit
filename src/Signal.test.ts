@@ -368,7 +368,7 @@ describe('Computed', () => {
         }
         return secondNumber.get()
       })
-      const computed = new Computed(computation, { cacheSize: 0 })
+      const computed = new Computed(computation)
 
       const subscriber = vi.fn()
       computed.subscribe(subscriber)
@@ -647,7 +647,7 @@ describe('batch', () => {
   })
 })
 
-describe('state', () => {
+describe('signal', () => {
   it('returns a Writable instance', () => {
     const someState = signal(1)
     expect(someState instanceof Signal).toBeTruthy()
