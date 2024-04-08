@@ -148,8 +148,8 @@ const sortPaths = (paths: string[]) =>
  * @param path The path to match against.
  * @returns The component whose path matches the provided path.
  */
-export const Router = <T>(
-  routes: RouteMap<T>,
+export const Router = <K, T extends RouteMap<K>>(
+  routes: T,
   path: Signal<string> = currentPath
 ) => {
   const params = store({} as any)
