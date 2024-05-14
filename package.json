@@ -26,11 +26,14 @@
   },
   "devDependencies": {
     "typescript": "^5.2.2",
-    "vite": "^5.0.12",
+    "vite": "^5.0.13",
     "vitest": "^1.2.1"
   },
   "dependencies": {
     "lit": "^3.0.2",
     "urlpattern-polyfill": "^10.0.0"
+  },
+  "engines": {
+    "node": "^20.12.2"
   }
 }

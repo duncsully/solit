@@ -5,9 +5,8 @@ import { Card, Rank, Suit } from './Card'
 import { repeat } from 'lit/directives/repeat.js'
 import { component, effect } from '../component'
 
-// Bug from browser backing after moving ace to foundation came back
 // Validate hash state before using
-// New game button + undo buttons
+// Undo button?
 // FLIP animation?
 // More efficient serialization (bitmask for tableau?)
 // Better styling solution?
@@ -26,36 +25,18 @@ function shuffleArray<T extends unknown[]>(array: T) {
 type Pile = number[]
 
 export const Klondike = component(() => {
-  // load state from hash
-  const hash = window.location.hash.slice(1)
-  const [
-    stockString,
-    wasteString = '',
-    foundationString = '',
-    ...tableauStrings
-  ] = hash.split('|')
-
-  const savedStock = stockString.split('').map(getCardId)
-  const savedWaste = wasteString.split('').map(getCardId)
-  const savedFoundation = foundationString.split('').map((char) => {
-    if (char === '-') return []
-    const id = getCardId(char)
-    const value = getValue(id)
-    const length = value + 1
-    return Array.from({ length }, (_, i) => id - length + 1 + i)
-  })
-  const savedTableauFlippedIndices = tableauStrings.map((tableauString) =>
-    tableauString.indexOf('-')
+  const stock = signal<Pile>([])
+  const waste = signal<Pile>([])
+  /** Negative for use with .at() to make it easier to treat arrays as stacks */
+  const selectedNegativeIndex = signal(-1)
+  const selectedPile = signal(waste)
+  const selectedCard = computed(
+    () => selectedPile.get().get().at(selectedNegativeIndex.get())!
   )
-  const savedTableau = tableauStrings.map((tableauString) => {
-    const adjustedString = tableauString.replace(/-/g, '')
-    return adjustedString.split('').map(getCardId)
-  })
+  const foundationPiles = Array.from({ length: 4 }, (_, i) => signal<Pile>([]))
+  const tableau = Array.from({ length: 7 }, (_, i) => signal<Pile>([]))
+  const tableauFlippedIndices = tableau.map((_, i) => signal(i))
 
-  const stock = signal<Pile>(
-    hash ? savedStock : shuffleArray(Array.from({ length: 52 }, (_, i) => i))
-  )
-  const waste = signal<Pile>(hash ? savedWaste : [])
   const handleStockClick = () => {
     if (stock.get().length === 0) {
       stock.set([...waste.get().reverse()])
@@ -67,24 +48,15 @@ export const Klondike = component(() => {
     }
     selectedPile.set(waste)
     selectedNegativeIndex.set(-1)
+    saveState()
   }
-
-  /** Negative for use with .at() to make it easier to treat arrays as stacks */
-  const selectedNegativeIndex = signal(-1)
-  const selectedPile = signal(waste)
-
-  const selectedCard = computed(
-    () => selectedPile.get().get().at(selectedNegativeIndex.get())!
-  )
 
   const handleWasteClick = () => {
     selectedPile.set(waste)
     selectedNegativeIndex.set(-1)
+    saveState()
   }
 
-  const foundationPiles = Array.from({ length: 4 }, (_, i) =>
-    signal<Pile>(hash ? savedFoundation[i] : [])
-  )
   const makeHandleFoundationClick = (foundationPile: Signal<Pile>) => () => {
     const cardToMove = selectedCard.get()
     const foundationCard = foundationPile.get().at(-1)
@@ -108,22 +80,11 @@ export const Klondike = component(() => {
       selectedPile.set(foundationPile)
     }
 
-    return false
-  }
+    checkTableauFlips()
 
-  const tableau = Array.from({ length: 7 }, (_, i) =>
-    signal<Pile>(hash ? savedTableau[i] : [])
-  )
-  // Deal cards to tableau
-  // Technically not how it's supposed to be done, but it's easier to implement
-  if (!hash) {
-    batch(() => {
-      tableau.forEach((pile, i) => {
-        const cards = stock.get().slice(0, i + 1)
-        pile.set(cards)
-        stock.update((current) => [...current.slice(i + 1)])
-      })
-    })
+    saveState()
+
+    return false
   }
 
   const handleTableauClick = (pileIndex: number, cardNegativeIndex: number) => {
@@ -157,11 +118,9 @@ export const Klondike = component(() => {
       selectedNegativeIndex.set(cardNegativeIndex)
       selectedPile.set(tableau[pileIndex])
     }
+    checkTableauFlips()
+    saveState()
   }
-
-  const tableauFlippedIndices = tableau.map((_, i) =>
-    signal(hash ? savedTableauFlippedIndices[i] : i)
-  )
 
   const handleDoubleClick = (pile: Signal<Pile>) => {
     const card = pile.get().at(-1)!
@@ -174,20 +133,68 @@ export const Klondike = component(() => {
     if (foundationPile) {
       pile.update((current) => [...current.slice(0, -1)])
       foundationPile.update((current) => [...current, card])
+      checkTableauFlips()
+      saveState()
     }
   }
 
-  // TODO: Not great that this is a side effect
-  // Automatically flip last card in tableau piles
-  effect(() => {
-    batch(() => {
-      tableau.forEach((pile, i) => {
-        if (tableauFlippedIndices[i].get() >= pile.get().length) {
-          tableauFlippedIndices[i].set(pile.get().length - 1)
-        }
-      })
+  // TODO: Brute force solution, optimize later by checking if the selected pile is a tableau pile and updating only it
+  /** Flip last card in tableau */
+  function checkTableauFlips() {
+    tableau.forEach((pile, i) => {
+      if (tableauFlippedIndices[i].get() >= pile.get().length) {
+        tableauFlippedIndices[i].set(pile.get().length - 1)
+      }
     })
-  })
+  }
+
+  function newGame() {
+    batch(() => {
+      stock.set(shuffleArray(Array.from({ length: 52 }, (_, i) => i)))
+      waste.set([])
+      foundationPiles.forEach((pile) => pile.set([]))
+      // Deal cards to tableau
+      // Technically not how it's supposed to be done, but it's easier to implement
+      tableau.forEach((pile, i) => {
+        const cards = stock.get().slice(0, i + 1)
+        pile.set(cards)
+        stock.update((current) => [...current.slice(i + 1)])
+      })
+      tableauFlippedIndices.forEach((index, i) => index.set(i))
+      saveState()
+    })
+  }
+
+  function loadState(serializedState: string) {
+    batch(() => {
+      const [
+        stockString,
+        wasteString = '',
+        foundationString = '',
+        ...tableauStrings
+      ] = serializedState.split('|')
+
+      stock.set(stockString.split('').map(getCardId))
+      waste.set(wasteString.split('').map(getCardId))
+      foundationString.split('').forEach((char, i) => {
+        if (char === '-') foundationPiles[i].set([])
+        const id = getCardId(char)
+        const value = getValue(id)
+        const length = value + 1
+        foundationPiles[i].set(
+          Array.from({ length }, (_, i) => id - length + 1 + i)
+        )
+      })
+      tableauStrings.forEach((tableauString, i) =>
+        tableauFlippedIndices[i].set(tableauString.indexOf('-'))
+      )
+      tableauStrings.forEach((tableauString, i) => {
+        const adjustedString = tableauString.replace('-', '')
+        tableau[i].set(adjustedString.split('').map(getCardId))
+      })
+      selectedNegativeIndex.set(-1)
+    })
+  }
 
   // Check win condition
   effect(() => {
@@ -198,8 +205,7 @@ export const Klondike = component(() => {
       // This would trigger before the render update. Really ought to have effects trigger post render
       setTimeout(() => {
         alert('You won!')
-        window.location.hash = ''
-        window.location.reload()
+        newGame()
       })
     }
   })
@@ -237,7 +243,7 @@ export const Klondike = component(() => {
   const ignorePop = signal<boolean | undefined>(undefined)
 
   // Serialize state to hash with card IDs represented by upper and lowercase letters
-  effect(() => {
+  const serializedState = computed(() => {
     const stockString = stock.get().reduce((acc, id) => acc + getChar(id), '')
     const wasteString = waste.get().reduce((acc, id) => acc + getChar(id), '')
     const foundationString = foundationPiles.reduce(
@@ -256,9 +262,13 @@ export const Klondike = component(() => {
       '|'
     )}`
 
-    ignorePop.update((current) => current !== undefined)
-    window.location.hash = hash
+    return hash
   })
+
+  function saveState() {
+    ignorePop.set(true)
+    window.location.hash = serializedState.get()
+  }
 
   // Make popstate reload state from hash
   effect(() => {
@@ -267,11 +277,21 @@ export const Klondike = component(() => {
         ignorePop.set(false)
         return
       }
-      window.location.reload()
+      loadState(window.location.hash.slice(1))
+      return false
     }
     window.addEventListener('popstate', listener)
     return () => window.removeEventListener('popstate', listener)
   })
+
+  const hash = window.location.hash.slice(1)
+  hash ? loadState(hash) : newGame()
+
+  const handleNewGame = () => {
+    if (confirm('Are you sure you want to start a new game?')) {
+      newGame()
+    }
+  }
 
   const emptyStyles = styleMap({
     width: '10rem',
@@ -280,7 +300,8 @@ export const Klondike = component(() => {
     borderRadius: '0.75rem',
   })
 
-  return html`
+  return html`<div>
+    <button @click=${handleNewGame}>New Game</button>
     <div
       style=${styleMap({
         margin: '0 auto',
@@ -352,7 +373,7 @@ export const Klondike = component(() => {
         `
       )}
     </div>
-  `
+  </div>`
 })
 
 const getValue = (card: number) => card % 13
