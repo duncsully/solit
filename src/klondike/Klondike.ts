@@ -33,8 +33,8 @@ export const Klondike = component(() => {
   const selectedCard = computed(
     () => selectedPile.get().get().at(selectedNegativeIndex.get())!
   )
-  const foundationPiles = Array.from({ length: 4 }, (_, i) => signal<Pile>([]))
-  const tableau = Array.from({ length: 7 }, (_, i) => signal<Pile>([]))
+  const foundationPiles = Array.from({ length: 4 }, () => signal<Pile>([]))
+  const tableau = Array.from({ length: 7 }, () => signal<Pile>([]))
   const tableauFlippedIndices = tableau.map((_, i) => signal(i))
 
   const handleStockClick = () => {
@@ -79,9 +79,6 @@ export const Klondike = component(() => {
       selectedNegativeIndex.set(-1)
       selectedPile.set(foundationPile)
     }
-
-    checkTableauFlips()
-
     saveState()
 
     return false
@@ -110,6 +107,8 @@ export const Klondike = component(() => {
       selectedPile
         .get()!
         .update((current) => [...current.slice(0, selectedNegativeIndex.get())])
+
+      checkTableauFlip()
       selectedPile.set(tableau[pileIndex])
     } else if (
       tableauPile.length + cardNegativeIndex >=
@@ -118,7 +117,6 @@ export const Klondike = component(() => {
       selectedNegativeIndex.set(cardNegativeIndex)
       selectedPile.set(tableau[pileIndex])
     }
-    checkTableauFlips()
     saveState()
   }
 
@@ -133,19 +131,18 @@ export const Klondike = component(() => {
     if (foundationPile) {
       pile.update((current) => [...current.slice(0, -1)])
       foundationPile.update((current) => [...current, card])
-      checkTableauFlips()
+      checkTableauFlip()
       saveState()
     }
   }
 
-  // TODO: Brute force solution, optimize later by checking if the selected pile is a tableau pile and updating only it
-  /** Flip last card in tableau */
-  function checkTableauFlips() {
-    tableau.forEach((pile, i) => {
-      if (tableauFlippedIndices[i].get() >= pile.get().length) {
-        tableauFlippedIndices[i].set(pile.get().length - 1)
-      }
-    })
+  /** Flip last card in tableau pile that just had cards moved from it */
+  function checkTableauFlip() {
+    const flippedIndex =
+      tableauFlippedIndices[tableau.indexOf(selectedPile.get())]
+    if (flippedIndex && flippedIndex.get() >= selectedPile.get().get().length) {
+      flippedIndex.set(selectedPile.get().get().length - 1)
+    }
   }
 
   function newGame() {
@@ -198,8 +195,10 @@ export const Klondike = component(() => {
 
   // Check win condition
   effect(() => {
-    const won = foundationPiles.every(
-      (foundation) => foundation.get().length === 13
+    // Due to signal logic, need to check every foundation pile instead of allowing to short circuit
+    const won = foundationPiles.reduce(
+      (result, foundation) => result && foundation.get().length === 13,
+      true
     )
     if (won) {
       // This would trigger before the render update. Really ought to have effects trigger post render
