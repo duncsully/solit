@@ -73,6 +73,7 @@ export const Klondike = component(() => {
     ) {
       selectedPile.get().update((current) => [...current.slice(0, -1)])
       foundationPile.update((current) => [...current, cardToMove])
+      checkTableauFlip()
       selectedPile.set(waste)
       selectedNegativeIndex.set(-1)
     } else {
@@ -118,6 +119,7 @@ export const Klondike = component(() => {
       selectedPile.set(tableau[pileIndex])
     }
     saveState()
+    checkWin()
   }
 
   const handleDoubleClick = (pile: Signal<Pile>) => {
@@ -134,6 +136,7 @@ export const Klondike = component(() => {
       checkTableauFlip()
       saveState()
     }
+    checkWin()
   }
 
   /** Flip last card in tableau pile that just had cards moved from it */
@@ -194,20 +197,18 @@ export const Klondike = component(() => {
   }
 
   // Check win condition
-  effect(() => {
-    // Due to signal logic, need to check every foundation pile instead of allowing to short circuit
-    const won = foundationPiles.reduce(
-      (result, foundation) => result && foundation.get().length === 13,
-      true
+  const checkWin = () => {
+    const won = foundationPiles.every(
+      (foundation) => foundation.get().length === 13
     )
     if (won) {
-      // This would trigger before the render update. Really ought to have effects trigger post render
+      // This would trigger before the render update otherwise
       setTimeout(() => {
         alert('You won!')
         newGame()
       })
     }
-  })
+  }
 
   const buildTableauPile = (pileIndex: number, index: number = 0) => {
     const pile = tableau[pileIndex].get()
