@@ -1,8 +1,9 @@
 import { resolve } from 'path'
+import { defineConfig } from 'vite'
 
 // TODO: Clean up TS d files
 
-export default {
+export default defineConfig({
   server: {
     port: 5174,
   },
@@ -14,4 +15,8 @@ export default {
       fileName: 'main',
     },
   },
-}
+  test: {
+    globals: true,
+    environment: 'happy-dom',
+  },
+})
