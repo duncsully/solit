@@ -86,6 +86,9 @@ export const store = <T extends object>(initialState: T) => {
         recursivelyUpdateSignals(obj[key], keyPath)
       }
     })
+    if (Array.isArray(obj)) {
+      signalMap[keyPathPrefix + '.length'] = computed(() => obj.length)
+    }
   }
 
   const createProxy = (obj: any, keyPathPrefix = '') => {
@@ -109,6 +112,7 @@ export const store = <T extends object>(initialState: T) => {
         return sig
       }
     }
+
     const result: any = new Proxy(obj, {
       get(target, key) {
         // Provides a way to access all signals on the object

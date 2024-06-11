@@ -210,6 +210,29 @@ describe('store', () => {
     expect(test.value).toBe(3)
   })
 
+  it('allows setting new getters', () => {
+    const test = store({
+      obj: {
+        get value() {
+          return 1
+        },
+      },
+    })
+    const subscriber = vi.fn()
+    watch(() => {
+      subscriber(test.obj.value)
+    })
+
+    test.obj = {
+      get value() {
+        return 2
+      },
+    }
+
+    expect(subscriber).toHaveBeenCalledWith(2)
+    expect(test.obj.value).toBe(2)
+  })
+
   it('works with detached references', () => {
     const test = store({ nested: { value: 1 } })
     const { nested } = test
@@ -234,7 +257,20 @@ describe('store', () => {
 
     test.list = [4, 5, 6]
 
-    expect(subscriber).toHaveBeenCalled()
+    expect(subscriber).toHaveBeenCalledWith([4, 5, 6])
+    expect(test.list).toEqual([4, 5, 6])
+  })
+
+  it('works with setting new array from iterating existing array', () => {
+    const test = store({ list: [1, 2, 3] })
+
+    const newArray = [...test.list, 4]
+
+    test.list = newArray
+
+    console.log(test.list.length)
+
+    expect(test.list).toEqual([1, 2, 3, 4])
   })
 
   it('returns all raw signals when accessing $ property', () => {
