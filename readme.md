@@ -100,22 +100,30 @@ setCount(getCount() + 1)
 
 Computed signals are optimized to only compute when their values are requested, either by calling their `get()` or `peek()` method directly or if they have subscribers, and then by default this value is memoized for as long as dependencies don't update.
 
-## Stores
+## Context
 
-Stores are a way to manage state in a more structured way. They are created with the `store` function which return an object with the same shape, recursively wrapping all nested objects. The underlying mechanism is still based around signals, but stores provide a more ergonomic API for working with simple read and write operations, especially with nested objects.
+Context lets you share values deep in the component tree without having to pass props. Create a context with `createContext` and provide a value to a callback's call stack with the `.provide` method on the returned context object. Consume the value with the `.value` getter property.
 
 ```ts
-const dimensions = store({
-  width: 1,
-  height: 2,
-  get area() {
-    return this.width * this.height
-  },
-})
+const themeContext = createContext(signal('light'))
 
-watch(() => console.log(dimensions.area)) //> 2
+const App = () => {
+  const theme = signal('dark')
+  return themeContext.provide(theme, () => {
+    return html`${SomeComponent()}`
+  })
+}
 
-dimensions.width = 3 //> 6
+const DeeplyNestedComponent = () => {
+  const theme = themeContext.value
+  return html`<div
+    style=${() => ({
+      color: theme.get() === 'dark' ? 'white' : 'black',
+    })}
+  >
+    Hello
+  </div>`
+}
 ```
 
 ## Templates
