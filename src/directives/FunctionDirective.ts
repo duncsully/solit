@@ -5,9 +5,10 @@ import {
   PartType,
   directive,
 } from 'lit/async-directive.js'
-import { batch, computed } from '../Signal'
+import { Computed, batch, computed } from '../Signal'
 
 class FunctionDirective extends AsyncDirective {
+  static signalCache = new WeakMap<Function, Computed<any>>()
   constructor(partInfo: PartInfo) {
     super(partInfo)
     this.shouldCompute = partInfo.type !== PartType.EVENT
@@ -16,15 +17,15 @@ class FunctionDirective extends AsyncDirective {
   shouldCompute: boolean
 
   render(func: Function) {
-    return this.shouldCompute
-      ? observe(computed(func as () => void))
-      : (...forward: unknown[]) => {
-          let result: unknown
-          batch(() => {
-            result = func(...forward)
-          })
-          return result
-        }
+    if (this.shouldCompute) {
+      if (!FunctionDirective.signalCache.has(func)) {
+        FunctionDirective.signalCache.set(func, computed(func as () => void))
+      }
+      return observe(FunctionDirective.signalCache.get(func)!)
+    }
+    return (...forward: unknown[]) => {
+      return batch(() => func(...forward))
+    }
   }
 }
 /**
