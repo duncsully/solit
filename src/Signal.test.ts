@@ -645,6 +645,12 @@ describe('batch', () => {
 
     expect(perimeterSubscriber).not.toHaveBeenCalled()
   })
+
+  it('returns the return value of the passed function', () => {
+    const returnValue = batch(() => 5)
+
+    expect(returnValue).toBe(5)
+  })
 })
 
 describe('signal', () => {

@@ -266,18 +266,19 @@ export class Signal<T> extends SignalBase<T> {
    * preventing a subscriber from being updated multiple times for multiple
    * writable signal write operations
    */
-  static batch(action: () => void) {
+  static batch<K>(action: () => K) {
     // If there is already a set, this is a nested call, don't flush until we
     // return to the top level
     const flush = !Signal.batchedUpdateChecks
     Signal.batchedUpdateChecks ??= new Set()
-    action()
+    const result = action()
     if (flush) {
       Signal.batchedUpdateChecks?.forEach((signal) => {
         signal.updateSubscribers()
       })
       Signal.batchedUpdateChecks = null
     }
+    return result
   }
   constructor(protected _initialValue: T, _options: SignalOptions<T> = {}) {
     super(_initialValue, _options)
