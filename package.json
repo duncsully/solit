@@ -19,6 +19,7 @@
   "scripts": {
     "dev": "vite",
     "host": "vite --host",
+    "prepare": "npm run build",
     "build": "tsc && vite build",
     "build:site": "vite build --config vite-site.config.ts",
     "preview": "vite preview --config vite-site.config.ts",
