@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { computed, signal } from './Signal'
-import { render } from 'lit'
+import { render } from 'lit-html'
 import { html } from './html'
 
 describe('html', () => {

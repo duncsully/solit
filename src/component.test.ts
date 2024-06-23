@@ -1,8 +1,9 @@
 import { describe, expect, it, vi } from 'vitest'
 import { component, effect } from './component'
 import { html } from './html'
-import { render } from 'lit'
+import { render } from 'lit-html'
 import { signal } from './Signal'
+import { ref } from 'lit-html/directives/ref.js'
 
 describe('component', () => {
   it('returns the template from the callback', () => {
@@ -59,5 +60,15 @@ describe('component', () => {
 
     expect(effectCheck).toHaveBeenCalledTimes(2)
     expect(cleanupCheck).toHaveBeenCalledTimes(1)
+  })
+
+  it('works with lit directives', () => {
+    const refFn = vi.fn()
+    const Inner = component(() => html`<p ${ref(refFn)}>Test</p>`)
+    const Test = component(() => html`<div>${() => Inner()}</div>`)
+
+    render(Test(), window.document.body)
+
+    expect(refFn).toHaveBeenCalledTimes(1)
   })
 })
