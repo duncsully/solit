@@ -1,8 +1,8 @@
-import { styleMap } from 'lit/directives/style-map.js'
+import { styleMap } from 'lit-html/directives/style-map.js'
 import { Signal, batch, computed, signal } from '../Signal'
 import { html } from '../html'
 import { Card, Rank, Suit } from './Card'
-import { repeat } from 'lit/directives/repeat.js'
+import { repeat } from 'lit-html/directives/repeat.js'
 import { component, effect } from '../component'
 
 // Validate hash state before using

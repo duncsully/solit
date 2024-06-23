@@ -1,7 +1,7 @@
-import { TemplateResult } from 'lit'
+import { TemplateResult } from 'lit-html'
 import { html } from '../html'
-import { styleMap } from 'lit/directives/style-map.js'
-import { when } from 'lit/directives/when.js'
+import { styleMap } from 'lit-html/directives/style-map.js'
+import { when } from 'lit-html/directives/when.js'
 
 export enum Suit {
   Clubs = '♣',

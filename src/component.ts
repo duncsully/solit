@@ -1,8 +1,8 @@
-import { noChange } from 'lit'
+import { noChange } from 'lit-html'
 import { Effect, watch } from './Signal'
 import { TemplateResult } from 'lit-html'
-import { directive } from 'lit/directive.js'
-import { AsyncDirective } from 'lit/async-directive.js'
+import { directive } from 'lit-html/directive.js'
+import { AsyncDirective } from 'lit-html/async-directive.js'
 
 const effectContext = [] as Effect[][]
 

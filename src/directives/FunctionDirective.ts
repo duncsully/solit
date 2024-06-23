@@ -4,7 +4,7 @@ import {
   PartInfo,
   PartType,
   directive,
-} from 'lit/async-directive.js'
+} from 'lit-html/async-directive.js'
 import { Computed, batch, computed } from '../Signal'
 
 class FunctionDirective extends AsyncDirective {

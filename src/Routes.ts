@@ -1,4 +1,4 @@
-import { nothing } from 'lit'
+import { nothing } from 'lit-html'
 import { Component } from './component'
 import { Signal, batch, computed, signal } from './Signal'
 import { store } from './store'

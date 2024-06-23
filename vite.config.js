@@ -11,9 +11,13 @@ export default defineConfig({
     emptyOutDir: false,
     lib: {
       entry: resolve(__dirname, 'src/index.ts'),
-      name: 'SoLit',
+      name: 'solit',
       fileName: 'main',
     },
+    minify: false,
+  },
+  rollupOptions: {
+    external: ['lit-html'],
   },
   test: {
     globals: true,
