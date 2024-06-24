@@ -1,3 +1,4 @@
+import { Context } from './context'
 import { describe, expect, it, vi } from 'vitest'
 import { component, effect } from './component'
 import { html } from './html'
@@ -70,5 +71,24 @@ describe('component', () => {
     render(Test(), window.document.body)
 
     expect(refFn).toHaveBeenCalledTimes(1)
+  })
+
+  it('works with context', () => {
+    const someContext = new Context('test')
+
+    const Inner = component(() => {
+      return html`<p>${someContext.value}</p>`
+    })
+
+    const Test = component(() => {
+      return someContext.provide('value', () => html`<div>${Inner()}</div>`)
+    })
+
+    render(Test(), window.document.body)
+
+    expect(window.document.body.children[0]).toMatchObject({
+      tagName: 'DIV',
+      textContent: 'value',
+    })
   })
 })

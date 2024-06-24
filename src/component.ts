@@ -1,4 +1,3 @@
-import { noChange } from 'lit-html'
 import { Effect, watch } from './Signal'
 import { TemplateResult } from 'lit-html'
 import { directive } from 'lit-html/directive.js'
@@ -51,39 +50,32 @@ export type Component<T extends unknown[]> = (...args: T) => TemplateResult
  * })
  * ```
  */
-export const component = <T extends unknown[]>(
-  templateFactory: (...args: T) => TemplateResult
-) =>
-  directive(
-    class extends AsyncDirective {
-      cleanups: ReturnType<Effect>[] = []
-      effects: Effect[] = []
-      rendered = false
+export const component =
+  <T extends unknown[]>(templateFactory: (...args: T) => TemplateResult) =>
+  (...props: T) => {
+    effectContext.push([])
+    const template = templateFactory(...props)
+    const effects = effectContext.pop()!
+    return directive(
+      class extends AsyncDirective {
+        cleanups: ReturnType<Effect>[] = []
 
-      render(...props: T) {
-        if (!this.rendered) {
-          effectContext.push([])
-          const template = templateFactory(...props)
-          this.effects = effectContext.pop()!
+        render() {
           this.runEffects()
-          this.rendered = true
           return template
         }
-        return noChange
-      }
 
-      runEffects() {
-        this.cleanups = this.effects.map((effectCb) =>
-          watch(effectCb, 'effect')
-        )
-      }
+        runEffects() {
+          this.cleanups = effects.map((effectCb) => watch(effectCb, 'effect'))
+        }
 
-      disconnected(): void {
-        this.cleanups.forEach((cleanup) => cleanup?.())
-      }
+        disconnected(): void {
+          this.cleanups.forEach((cleanup) => cleanup?.())
+        }
 
-      reconnected(): void {
-        this.runEffects()
+        reconnected(): void {
+          this.runEffects()
+        }
       }
-    }
-  ) as Component<T>
+    )() as Component<T>
+  }
