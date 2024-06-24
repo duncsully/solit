@@ -1,12 +1,57 @@
-import { styleMap } from 'lit/directives/style-map.js'
-import { Writable, computed, state } from './Observable'
-import { repeat } from 'lit/directives/repeat.js'
+import { styleMap } from 'lit-html/directives/style-map.js'
+import { Signal, computed, signal } from './Signal'
+import { repeat } from 'lit-html/directives/repeat.js'
 import { html } from './html'
 import { component, effect } from './component'
-import { when } from 'lit/directives/when.js'
+import { when } from 'lit-html/directives/when.js'
+import { render } from 'lit-html'
+import { Router, setupHistoryRouting } from './Routes'
+import { store } from './store'
+
+const Hexagon = component(() => {
+  const containerStyles = styleMap({
+    marginLeft: '12px',
+    height: '40px',
+    borderTop: '2px solid black',
+    borderBottom: '2px solid black',
+    position: 'relative',
+    background: 'lightgray',
+  })
+
+  const commonLineStyle = {
+    position: 'absolute',
+    width: '10px',
+    height: '57.74%',
+    background: 'lightgray',
+  }
+
+  const topLeftLineStyles = styleMap({
+    ...commonLineStyle,
+    top: '0',
+    left: '0',
+    transformOrigin: 'top left',
+    transform: 'rotate(30deg)',
+    borderLeft: '2px solid black',
+  })
+
+  const bottomLeftLineStyles = styleMap({
+    ...commonLineStyle,
+    bottom: '0',
+    left: '0',
+    transformOrigin: 'bottom left',
+    transform: 'rotate(-30deg)',
+    borderLeft: '2px solid black',
+  })
+  return html`
+    <div style=${containerStyles}>
+      <div style=${topLeftLineStyles}></div>
+      <div style=${bottomLeftLineStyles}></div>
+    </div>
+  `
+})
 
 export const Test = component((label: string, start: number = 0) => {
-  const count = state(start, { name: 'count' })
+  const count = signal(start, { name: 'count' })
 
   effect(() => {
     console.log('count is now', count.get())
@@ -25,7 +70,8 @@ export const Test = component((label: string, start: number = 0) => {
     count.set(count.get() + 1)
   }
 
-  return html`<button @click=${handleClick}>${label} ${count}</button>`
+  return html`<button @click=${handleClick}>${label} ${count}</button>
+    <div style="margin-top: 16px; width: 200px;">${Hexagon()}</div>`
 })
 
 /* const Doubled = (count: Writable<number>) => {
@@ -39,7 +85,7 @@ export const Test = component((label: string, start: number = 0) => {
   return html`<div>Doubled: ${doubled}</div>`
 } */
 
-const sharedState = state(0)
+const sharedState = signal(0)
 
 export const Shared = () => {
   const handleClick = () => {
@@ -51,8 +97,8 @@ export const Shared = () => {
   </button>`
 }
 
-/* const MemoryLeakTest = () => {
-  const count = state(0)
+const MemoryLeakTest = () => {
+  const count = signal(0)
   console.log(count)
   return html`<button
       @click=${() => {
@@ -64,47 +110,39 @@ export const Shared = () => {
       Add a bunch of computeds
     </button>
     <button @click=${() => count.update((value) => value + 1)}>Add</button>`
-} */
+}
 
-const todos = state(
-  {} as { label: Writable<string>; checked: Writable<boolean>; id: number }[]
-)
+type Todo = {
+  label: string
+  done: boolean
+  id: number
+}
+const todoStore = store({
+  list: [] as Todo[],
+  get doneCount() {
+    return this.list.filter((todo) => todo.done).length
+  },
+})
 
 export const TodoList = () => {
-  const newValue = state('')
-  const addTodo = () => {
-    todos.update((before) => {
-      const id = Date.now()
-      return {
-        ...before,
-        [id]: {
-          label: state(newValue.peek()),
-          checked: state(false),
-          id,
-        },
-      }
-    })
-    newValue.set('')
+  const addTodo = (label: string) => {
+    todoStore.list = [...todoStore.list, { label, done: false, id: Date.now() }]
   }
 
-  const handleChange = (e: any) => {
-    newValue.set(e.target.value)
-  }
-
-  const handleKeyup = (e: KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      addTodo()
-    } else {
-      newValue.set((e.target as HTMLInputElement)?.value)
-    }
+  function handleSubmit(e: SubmitEvent) {
+    const target = e.target as HTMLFormElement
+    console.log(e)
+    e.preventDefault()
+    addTodo((target[0] as HTMLInputElement).value)
+    target.reset()
   }
 
   const toRender = computed(
     () =>
       html`${repeat(
-        Object.values(todos.get()),
+        todoStore.list,
         (todo) => todo.id,
-        (todo) => TodoItem(todo.id)
+        (todo) => TodoItem(todo)
       )}`
   )
 
@@ -117,43 +155,38 @@ export const TodoList = () => {
       })}
     >
       ${toRender}
-      <input
-        type="text"
-        placeholder="Add a todo"
-        .value=${newValue}
-        @change=${handleChange}
-        @keyup=${handleKeyup}
-      />
+      <form @submit=${handleSubmit}>
+        <input type="text" placeholder="Add a todo" />
+      </form>
     </div>
   `
 }
 
-export const TodoItem = (id: number) => {
-  const todo = todos.get()[id]
+export const TodoItem = (todo: Todo) => {
   const getStyles = () =>
     styleMap({
-      textDecoration: todo.checked.get() ? 'line-through' : 'none',
+      textDecoration: todo.done ? 'line-through' : 'none',
     })
 
   effect(() => {
-    console.log('checked:', todo.checked.get())
+    console.log('checked:', todo.done)
   })
 
   return html`
     <div>
       <input
         type="checkbox"
-        .checked=${todo.checked}
+        .checked=${() => todo.done}
         @change=${(e: any) => {
-          todo.checked.set(e.target.checked)
+          todo.done = e.target.checked
         }}
       />
       <input
         type="text"
-        .value=${todo.label}
+        .value=${() => todo.label}
         style=${getStyles}
         @change=${(e: any) => {
-          todo.label.set(e.target.value)
+          todo.label = e.target.value
         }}
       />
     </div>
@@ -161,7 +194,7 @@ export const TodoItem = (id: number) => {
 }
 
 const Nesteder = component(() => {
-  const count = state(0)
+  const count = signal(0)
   effect(() => {
     console.log('running effect 1.1.1')
     console.log('inner count is', count.get())
@@ -174,7 +207,7 @@ const Nesteder = component(() => {
   </div>`
 })
 
-const NestedEffectTest = component((count: Writable<number>) => {
+const NestedEffectTest = component((count: Signal<number>) => {
   effect(() => {
     console.log('running effect 1.1')
     // Passed in from parent
@@ -187,14 +220,12 @@ const NestedEffectTest = component((count: Writable<number>) => {
 })
 
 const EffectTest = component(() => {
-  const showingSubtemplate = state(true)
-  const count = state(0)
+  const showingSubtemplate = signal(true)
+  const count = signal(0)
   effect(() => {
     console.log('running effect 1')
     return () => console.log('cleaning up effect 1')
   })
-
-  const subtemplate = NestedEffectTest(count)
 
   effect(() => {
     return () => console.log('cleaning up effect 2')
@@ -207,17 +238,61 @@ const EffectTest = component(() => {
     <button @click=${() => (count.value += 1)}>Increment</button>
     <p>count: ${count}</p>
     <div>template 1</div>
-    ${() => when(showingSubtemplate.get(), () => subtemplate)}
+    ${() => when(showingSubtemplate.get(), () => NestedEffectTest(count))}
   `
 })
 
 export const App = () => {
-  return EffectTest()
+  setupHistoryRouting()
+  return html`
+    <a href="/">Home</a>
+    <a href="/effect-test">Effect test</a>
+    <a href="/todo">Todo list</a>
+    <a href="/leak-test">Memory leak test</a>
+    <a href="/nested">Nested</a>
+    <div>
+      ${Router({
+        '/': () => Test('Click me'),
+        '/effect-test': EffectTest,
+        '/todo': TodoList,
+        '/leak-test': MemoryLeakTest,
+        '/nested/*?': (props) => {
+          const count = signal(0)
+          return html` <button @click=${() => count.value++}>
+              Count is ${count}
+            </button>
+            <a href="/nested">Nested</a>
+            <a href="/nested/thing">Thing</a>
+            <a href="/nested/thing/optional">Thing with optional</a>
+            ${Router(
+              {
+                '/': () => html`<div>Nested</div>`,
+                '/:thing/:optional?': ({ thing, optional }) =>
+                  html`<div>Nested ${thing}, optional is ${optional}</div>`,
+              },
+              props[0]
+            )}`
+        },
+      })}
+    </div>
+  `
 }
+
+render(App(), document.body)
 
 /*
 To do:
+- Cache and rethrow errors in computed
+- Batch effect runs, don't run immediately
 - Post-render effects without using ref?
 - Batch undo? Any change to a state should be undoable, and
   any changes during a batch should all be undoable in one go.
+- Would the cache logic ever get it wrong?
+- Single layer object and array signals?
+*/
+
+/*
+Router Brainstorming:
+- SSR with lit labs SSR
+- Async components for waiting for data to load? 
 */
