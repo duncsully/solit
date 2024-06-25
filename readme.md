@@ -2,25 +2,19 @@
 
 Solid, but with lit-html. "Components" are just functions that setup reactive lit-html templates. State and effects are managed with writable and computed signals that automatically track dependent signals. No JSX, no manual dependency tracking, no rules of hooks, no VDOM, no compiler.
 
-Only six primitives are needed to build reactive components:
+Only five primitives are needed to build reactive components:
 
 - `component(templateFactory)` - a function to turn a template factory into a component with a lifecycle
 - `signal(initialValue)` - a writable signal that can be tracked by computed signals and effects
 - `computed(getter)` - a computed signal that tracks its dependencies, can be tracked itself, and is lazily evaluated
 - `effect(callback)` - a callback that is run when its dependencies change, optionally running a returned cleanup callback
 - `html` - a template literal tagging function to build reactive lit-html templates for generating DOM
-- `render(template, container)` - a function that renders a template to a container
+
+The returned template results of calling a component can then be rendered with lit-html's `render` function.
 
 ```ts
-import {
-  component,
-  signal,
-  computed,
-  effect,
-  html,
-  render,
-  Signal,
-} from 'solit'
+import { component, signal, computed, effect, html, Signal } from 'solit'
+import { render } from 'lit-html'
 
 const Counter = component(() => {
   const count = signal(0)
@@ -128,7 +122,7 @@ const DeeplyNestedComponent = () => {
 
 ## Templates
 
-Templates are built using a slightly enhanced version of lit-html. The `html` template literal tagging function is used to create a template that can be rendered with the `render` function. [Read more about lit-html here.](https://lit.dev/docs/libraries/standalone-templates/) `html` has the following enhancements:
+Templates are built using a slightly enhanced version of lit-html. The `html` template literal tagging function is used to create a template that can be rendered with lit-html's `render` function. [Read more about lit-html here.](https://lit.dev/docs/libraries/standalone-templates/) `html` has the following enhancements:
 
 - Signals can be passed directly in and will automatically and surgically update the DOM when they change
 - Functions are reactive to any signal updates inside of them, likewise surgically updating the DOM
