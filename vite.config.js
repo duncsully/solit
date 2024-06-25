@@ -1,9 +1,13 @@
 import { resolve } from 'path'
 import { defineConfig } from 'vite'
+import { externalizeDeps } from 'vite-plugin-externalize-deps'
 
 // TODO: Clean up TS d files
 
 export default defineConfig({
+  plugins: [
+    externalizeDeps(),
+  ],
   server: {
     port: 5174,
   },
@@ -15,9 +19,6 @@ export default defineConfig({
       fileName: 'main',
     },
     minify: false,
-  },
-  rollupOptions: {
-    external: ['lit-html'],
   },
   test: {
     globals: true,
