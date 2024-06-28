@@ -1,0 +1,4 @@
+- Separate exports from the main file
+- Actually publish to npm
+- Fix context
+- Fix store

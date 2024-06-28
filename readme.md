@@ -128,6 +128,20 @@ Templates are built using a slightly enhanced version of lit-html. The `html` te
 - Functions are reactive to any signal updates inside of them, likewise surgically updating the DOM
 - Functions used as event handlers via `@eventname=${someFunction}` will automatically batch signal updates so that change diffing the signals is deferred until all signal updates have been processed, preventing unnecessary DOM updates
 
+### bind directive
+
+Solit provides a `bind` directive to two-way bind an element's attribute or property to a signal. By default it binds to the input event, but you can pass an event name as the second argument to bind to a different event.
+
+```ts
+const firstName = signal('')
+const isCool = signal(false)
+
+return html`
+  <input type="text" .value=${bind(firstName)} />
+  <input type="checkbox" .checked=${bind(isCool, 'change')} />
+`
+```
+
 ## Advanced
 
 #### Comparing changes
