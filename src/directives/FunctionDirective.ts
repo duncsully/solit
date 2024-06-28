@@ -7,7 +7,7 @@ import {
 } from 'lit-html/async-directive.js'
 import { Computed, batch, computed } from '../Signal'
 
-class FunctionDirective extends AsyncDirective {
+export class FunctionDirective extends AsyncDirective {
   static signalCache = new WeakMap<Function, Computed<any>>()
   constructor(partInfo: PartInfo) {
     super(partInfo)
