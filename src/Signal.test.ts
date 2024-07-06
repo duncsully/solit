@@ -120,22 +120,28 @@ describe('Computed', () => {
 
       it('runs on interval with at least one subscriber', () => {
         const getter = vi.fn(() => 5)
-        const computed = new Computed(getter, { computeOnInterval: 100 })
+        const computed = new Computed(getter, {
+          computeOnInterval: 100,
+        })
 
         vi.advanceTimersByTime(101)
 
         expect(getter).not.toHaveBeenCalled()
 
-        const unsub = computed.subscribe(vi.fn())
+        const subscriber = vi.fn()
+        const unsub = computed.subscribe(subscriber)
         getter.mockClear()
 
         vi.advanceTimersByTime(101)
 
         expect(getter).toHaveBeenCalledTimes(1)
+        expect(subscriber).toHaveBeenCalledWith(5)
 
+        subscriber.mockClear()
         vi.advanceTimersByTime(101)
 
         expect(getter).toHaveBeenCalledTimes(2)
+        expect(subscriber).not.toHaveBeenCalled()
 
         getter.mockClear()
         unsub()

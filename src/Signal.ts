@@ -158,12 +158,14 @@ export class Computed<T> extends SignalBase<T> {
       ..._options
     } = options
     super(undefined as T, _options)
-    this._cacheSize = cacheSize
+    // Disable cache if computeOnInterval is set because it means we likely have
+    // dependencies that can't be tracked automatically
+    this._cacheSize = computeOnInterval !== undefined ? 0 : cacheSize
+    this._computeOnInterval = computeOnInterval
     this._computeOnIdle = computeOnIdle && !!globalThis.requestIdleCallback
     if (this._computeOnIdle) {
       this.requestIdleComputed()
     }
-    this._computeOnInterval = computeOnInterval
   }
 
   observe = (subscriber: Subscriber<T>) => {
@@ -173,7 +175,7 @@ export class Computed<T> extends SignalBase<T> {
       this.computeValue()
       if (this._computeOnInterval) {
         this._intervalHandle = globalThis.setInterval(() => {
-          this.computeValue()
+          this.updateSubscribers()
         }, this._computeOnInterval)
       }
     }

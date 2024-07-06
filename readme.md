@@ -203,7 +203,7 @@ Computed signals are normally evaluated lazily, computing only when their value 
 
 #### Computed values on an interval
 
-Sometimes you want to proactively recompute a value on a regular interval, e.g. to track the time since an action happened. You can use the `interval` option to pass a number of milliseconds to recompute on that interval as long as there is at least one subscriber. Subscribers will still only be updated if the computed value changes.
+Sometimes you want to proactively recompute a value on a regular interval, e.g. to track the time since an action happened. You can use the `computeOnInterval` option to pass a number of milliseconds to recompute on that interval as long as there is at least one subscriber. Subscribers will still only be updated if the computed value changes. Note that this will disable memoization (ignoring `cacheSize`).
 
 #### computedGroup - Computing multiple values in one calculation
 
