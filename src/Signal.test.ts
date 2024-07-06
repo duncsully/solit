@@ -1,5 +1,5 @@
 import { batch, Computed, computed, signal, watch, Signal } from './Signal'
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeAll, afterAll } from 'vitest'
 
 describe('Computed', () => {
   describe('constructor', () => {
@@ -107,6 +107,47 @@ describe('Computed', () => {
 
         expect(getter).toHaveBeenCalled()
         expect(doubled.get()).toBe(4)
+      })
+    })
+
+    describe('computeOnInterval', () => {
+      beforeAll(() => {
+        vi.useFakeTimers()
+      })
+      afterAll(() => {
+        vi.useRealTimers()
+      })
+
+      it('runs on interval with at least one subscriber', () => {
+        const getter = vi.fn(() => 5)
+        const computed = new Computed(getter, { computeOnInterval: 100 })
+
+        vi.advanceTimersByTime(101)
+
+        expect(getter).not.toHaveBeenCalled()
+
+        const unsub = computed.subscribe(vi.fn())
+        getter.mockClear()
+
+        vi.advanceTimersByTime(101)
+
+        expect(getter).toHaveBeenCalledTimes(1)
+
+        vi.advanceTimersByTime(101)
+
+        expect(getter).toHaveBeenCalledTimes(2)
+
+        getter.mockClear()
+        unsub()
+        vi.advanceTimersByTime(101)
+
+        expect(getter).not.toHaveBeenCalled()
+
+        computed.subscribe(vi.fn())
+        getter.mockClear()
+        vi.advanceTimersByTime(101)
+
+        expect(getter).toHaveBeenCalledTimes(1)
       })
     })
   })

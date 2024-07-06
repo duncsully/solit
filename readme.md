@@ -201,6 +201,10 @@ Computed signals are normally evaluated lazily, computing only when their value 
 
 **Note:** This requires having `cacheSize` set to at least 1.
 
+#### Computed values on an interval
+
+Sometimes you want to proactively recompute a value on a regular interval, e.g. to track the time since an action happened. You can use the `interval` option to pass a number of milliseconds to recompute on that interval as long as there is at least one subscriber. Subscribers will still only be updated if the computed value changes.
+
 #### computedGroup - Computing multiple values in one calculation
 
 Sometimes you may want to create multiple computed signals that depend on the same calculation. For example, if you had a todo list that you wanted to separate into complete and incomplete todos, it'd be inefficient to filter the list twice. Instead, you can use `computedGroup` to compute multiple values in one calculation. Simply pass in your getter function that returns an object or array with the computed values, and it will return an object or array of computed signals respectively. They can be tracked individually like any other computed signal, so if a calculation only affects one of the values, only that computed signal will update its subscribers.

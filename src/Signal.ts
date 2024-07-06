@@ -137,6 +137,12 @@ export type ComputedOptions<T> = SignalOptions<T> & {
    * there are no subscribers
    */
   computeOnIdle?: boolean
+  /**
+   * If set to a number, when there is at least one subscriber the signal will be
+   * recomputed on the specified millisecond interval (using `setInterval`), updating
+   * any subscribers if the value has changed
+   */
+  computeOnInterval?: number
 }
 
 /**
@@ -145,13 +151,19 @@ export type ComputedOptions<T> = SignalOptions<T> & {
  */
 export class Computed<T> extends SignalBase<T> {
   constructor(protected getter: () => T, options: ComputedOptions<T> = {}) {
-    const { cacheSize = 1, computeOnIdle = false, ..._options } = options
+    const {
+      cacheSize = 1,
+      computeOnIdle = false,
+      computeOnInterval,
+      ..._options
+    } = options
     super(undefined as T, _options)
     this._cacheSize = cacheSize
     this._computeOnIdle = computeOnIdle && !!globalThis.requestIdleCallback
     if (this._computeOnIdle) {
       this.requestIdleComputed()
     }
+    this._computeOnInterval = computeOnInterval
   }
 
   observe = (subscriber: Subscriber<T>) => {
@@ -159,6 +171,11 @@ export class Computed<T> extends SignalBase<T> {
     // Need to track dependencies now that we have a subscriber
     if (this._subscribers.size === 1) {
       this.computeValue()
+      if (this._computeOnInterval) {
+        this._intervalHandle = globalThis.setInterval(() => {
+          this.computeValue()
+        }, this._computeOnInterval)
+      }
     }
     return unsubscribe
   }
@@ -170,6 +187,11 @@ export class Computed<T> extends SignalBase<T> {
     // subscriber, we'll recompute and re-subscribe to dependencies.
     if (!this._subscribers.size) {
       this._toUnsubscribe.forEach(Reflect.apply)
+      this._toUnsubscribe.clear()
+      if (this._intervalHandle) {
+        clearInterval(this._intervalHandle)
+        this._intervalHandle = undefined
+      }
     }
   }
 
@@ -253,6 +275,8 @@ export class Computed<T> extends SignalBase<T> {
   protected _computeOnIdle = false
   protected _idleCallbackHandle: number | undefined
   protected _toUnsubscribe = new Set<() => void>()
+  protected _computeOnInterval: number | undefined
+  protected _intervalHandle: ReturnType<typeof setInterval> | undefined
 }
 
 /**
