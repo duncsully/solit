@@ -1,4 +1,5 @@
 import { SignalBase } from './Signal'
+import { suppressFalseAsText } from './directives'
 import { func } from './directives/FunctionDirective'
 import { observe } from './directives/ObserveDirective'
 import { html as litHtml } from 'lit-html'
@@ -10,6 +11,9 @@ export const html = (strings: TemplateStringsArray, ...values: unknown[]) => {
     }
     if (v instanceof Function) {
       return func(v)
+    }
+    if (v === false) {
+      return suppressFalseAsText()
     }
     return v
   })

@@ -124,6 +124,7 @@ const DeeplyNestedComponent = () => {
 
 Templates are built using a slightly enhanced version of lit-html. The `html` template literal tagging function is used to create a template that can be rendered with lit-html's `render` function. [Read more about lit-html here.](https://lit.dev/docs/libraries/standalone-templates/) `html` has the following enhancements:
 
+- `false` will not render as a text node to make conditional rendering easier
 - Signals can be passed directly in and will automatically and surgically update the DOM when they change
 - Functions are reactive to any signal updates inside of them, likewise surgically updating the DOM
 - Functions used as event handlers via `@eventname=${someFunction}` will automatically batch signal updates so that change diffing the signals is deferred until all signal updates have been processed, preventing unnecessary DOM updates

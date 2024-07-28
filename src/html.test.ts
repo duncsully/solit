@@ -60,4 +60,17 @@ describe('html', () => {
 
     expect(subscriber).not.toHaveBeenCalled()
   })
+
+  it('does not render false as a text node', () => {
+    const shouldRender = false
+    const el = html`<p>Hello world!</p>
+      ${shouldRender && html`<p>Should not render</p>`}`
+    render(el, window.document.body)
+
+    expect(window.document.body.children[0]).toMatchObject({
+      tagName: 'P',
+      textContent: 'Hello world!',
+    })
+    expect(window.document.body.children[1]).toBeUndefined()
+  })
 })
