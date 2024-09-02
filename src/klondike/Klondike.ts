@@ -273,7 +273,7 @@ export const Klondike = component(() => {
   // Make popstate reload state from hash
   effect(() => {
     const listener = () => {
-      if (ignorePop.peek()) {
+      if (ignorePop.peek) {
         ignorePop.set(false)
         return
       }

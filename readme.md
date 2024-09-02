@@ -58,39 +58,23 @@ render(Counter(), document.body)
 
 ## Signals
 
-Signals are the state management solution in SoLit. There are writable signals created with `signal(initialValue)` and computed signals created with `computed(getter)`. They both have the following common methods:
+Signals are the state management solution in SoLit. There are writable signals created with `signal(initialValue)` and computed signals created with `computed(getter)`. They both have the following common properties and methods:
 
 - `get()` - returns the current value. When used inside of a computed signal's getter, an effect, or a function inside of a template, the signal is automatically tracked as a dependency.
-- `peek()` - returns the current value without tracking it as a dependency
+- `value` - a getter property that wraps the `get` method for both computed and writable signals
+- `peek` - returns the current value without tracking it as a dependency
 - `subscribe(callback)` - subscribes to changes to the current value, returns an unsubscribe function, and immediately calls the callback with the current value
 - `observe(callback)` - subscribes to changes to the current value, returns an unsubscribe function, but does not immediately call the callback with the current value
 - `unsubscribe(callback)` - unsubscribes a callback from changes to the current value
 
-Writable signals additionally have the following methods:
+Writable signals additionally have the following setters and methods:
 
 - `set(value)` - sets the current value
+- `value` - a setter property that wraps the `set` method
 - `update(updater)` - updates the current value with an updater function that is passed the current value and returns the new value
 - `reset()` - resets the current value to the initial value
 - `mutate(callback)` - runs a callback that mutates the current value (typically an object or array) and then requests an update
-
-Additionally, signals have a `value` property that wraps the `get` method and `set` method for writable signals. You may find this more familiar or convenient in certain cases.
-
-```ts
-const count = signal(0)
-
-const increment = () => (count.value += 1)
-// vs
-const increment = () => count.update((current) => current + 1)
-```
-
-If you prefer the Solid way of doing things, you can use an array destructuring assignment to get the `get` and `set` methods directly.
-
-```ts
-const [getCount, setCount] = signal(0)
-const [getDoubled] = computed(() => getCount() * 2)
-
-setCount(getCount() + 1)
-```
+- `getReadonly` - returns a readonly signal without any writable methods
 
 Computed signals are optimized to only compute when their values are requested, either by calling their `get()` or `peek()` method directly or if they have subscribers, and then by default this value is memoized for as long as dependencies don't update.
 

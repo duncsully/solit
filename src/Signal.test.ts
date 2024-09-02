@@ -179,7 +179,7 @@ describe('Computed', () => {
       it('returns return value of function passed to constructor and does not update dependent Computeds', () => {
         const number = new Signal(2)
         const doubled = new Computed(() => number.get() * 2)
-        const quadrupledOnce = new Computed(() => doubled.peek() * 2)
+        const quadrupledOnce = new Computed(() => doubled.peek * 2)
         quadrupledOnce.get()
 
         number.set(3)
@@ -291,15 +291,6 @@ describe('Computed', () => {
         number.set(2)
 
         expect(subscriber).not.toHaveBeenCalled()
-      })
-    })
-
-    describe('iterator', () => {
-      it('returns its get method when array destructured', () => {
-        const aComputed = new Computed(() => 5)
-        const [get] = aComputed
-
-        expect(get).toBe(aComputed.get)
       })
     })
   })
@@ -457,9 +448,9 @@ describe('Signal', () => {
     it('returns the primitive value passed to the constructor and does not update dependent Computeds', () => {
       const number = new Signal(1)
 
-      expect(number.peek()).toBe(1)
+      expect(number.peek).toBe(1)
 
-      const squared = new Computed(() => number.peek() ** 2)
+      const squared = new Computed(() => number.peek ** 2)
       squared.get()
       number.set(2)
 
@@ -498,16 +489,6 @@ describe('Signal', () => {
       array.mutate((value) => value.push('d'))
 
       expect(subscriber).toHaveBeenCalledWith(['a', 'b', 'c', 'd'])
-    })
-  })
-
-  describe('iterator', () => {
-    it('returns its get and set methods when array destructured', () => {
-      const aSignal = new Signal(5)
-      const [get, set] = aSignal
-
-      expect(get).toBe(aSignal.get)
-      expect(set).toBe(aSignal.set)
     })
   })
 

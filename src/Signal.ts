@@ -12,6 +12,14 @@ export type SignalOptions<T> = {
   name?: string
 }
 
+export type ReadonlySignal<T> = {
+  readonly peek: T
+  readonly value: T
+  observe(subscriber: Subscriber<T>): () => void
+  subscribe(subscriber: Subscriber<T>): () => void
+  unsubscribe(subscriber: Subscriber<T>): void
+}
+
 export const notEqual = <T>(
   firstValue: T | undefined,
   secondValue: T | undefined
@@ -50,6 +58,18 @@ export class SignalBase<T> {
     this._lastBroadcastValue = _value
   }
 
+  /**
+   * Get the current value without setting this signal as a dependency
+   * of the calling computed signal
+   */
+  get peek() {
+    return this._value
+  }
+
+  /**
+   * Reading gets the current value, setting this signal as a dependency if the caller
+   * is a computed signal. Assigning a new value will update subscribers if it has changed.
+   */
   get value() {
     return this.get()
   }
@@ -71,7 +91,7 @@ export class SignalBase<T> {
   subscribe(subscriber: Subscriber<T>) {
     const unsubscribe = this.observe(subscriber)
 
-    subscriber(this.peek())
+    subscriber(this.peek)
 
     this._lastBroadcastValue = this._value
 
@@ -86,20 +106,12 @@ export class SignalBase<T> {
   }
 
   /**
-   * Get the current value without setting this signal as a dependency
-   * of the calling computed signal
-   */
-  peek() {
-    return this._value
-  }
-
-  /**
-   * Get the current value and set this signal as a dependency of the
-   * calling computed signal
+   * Get the current value, setting this signal as a dependency if the caller
+   * is a computed signal
    */
   get() {
     const caller = SignalBase.context.at(-1)
-    const value = this.peek()
+    const value = this.peek
     if (caller) {
       caller.setCacheDependency(this, value)
     }
@@ -110,7 +122,7 @@ export class SignalBase<T> {
     const { hasChanged = notEqual } = this._options
     if (
       this._subscribers.size &&
-      hasChanged(this._lastBroadcastValue, this.peek())
+      hasChanged(this._lastBroadcastValue, this.peek)
     ) {
       this._subscribers.forEach((subscriber) => subscriber(this._value))
       this._lastBroadcastValue = this._value
@@ -168,6 +180,29 @@ export class Computed<T> extends SignalBase<T> {
     }
   }
 
+  get peek() {
+    if (this._idleCallbackHandle) {
+      cancelIdleCallback(this._idleCallbackHandle)
+      this._idleCallbackHandle = undefined
+    }
+    const cachedResult = this._cache.find((cache) => {
+      for (const [dependency, value] of cache.dependencies) {
+        if (dependency.peek !== value) return false
+      }
+      return true
+    })
+    if (cachedResult) {
+      // Move to the front of the cache
+      this._cache.splice(this._cache.indexOf(cachedResult), 1)
+      this._cache.unshift(cachedResult)
+
+      this._value = cachedResult.value
+    } else {
+      this.computeValue()
+    }
+    return super.peek
+  }
+
   observe = (subscriber: Subscriber<T>) => {
     const unsubscribe = super.observe(subscriber)
     // Need to track dependencies now that we have a subscriber
@@ -197,29 +232,6 @@ export class Computed<T> extends SignalBase<T> {
     }
   }
 
-  peek = () => {
-    if (this._idleCallbackHandle) {
-      cancelIdleCallback(this._idleCallbackHandle)
-      this._idleCallbackHandle = undefined
-    }
-    const cachedResult = this._cache.find((cache) => {
-      for (const [dependency, value] of cache.dependencies) {
-        if (dependency.peek() !== value) return false
-      }
-      return true
-    })
-    if (cachedResult) {
-      // Move to the front of the cache
-      this._cache.splice(this._cache.indexOf(cachedResult), 1)
-      this._cache.unshift(cachedResult)
-
-      this._value = cachedResult.value
-    } else {
-      this.computeValue()
-    }
-    return super.peek()
-  }
-
   setCacheDependency = (dependency: SignalBase<any>, value: any) => {
     // Don't bother tracking dependencies if there are no subscribers
     if (this._subscribers.size) {
@@ -236,11 +248,6 @@ export class Computed<T> extends SignalBase<T> {
     if (!this._subscribers.size && this._computeOnIdle) {
       this.requestIdleComputed()
     }
-  };
-
-  // Allows array destructure assignment e.g. `const [getValue] = computed(() => value)`
-  [Symbol.iterator]() {
-    return [this.get].values()
   }
 
   protected computeValue() {
@@ -353,11 +360,22 @@ export class Signal<T> extends SignalBase<T> {
    */
   reset = () => {
     this.set(this._initialValue)
-  };
+  }
 
-  // Allows array destructure assignment e.g. `const [getValue, setValue] = signal(0)`
-  [Symbol.iterator]() {
-    return [this.get, this.set].values()
+  getReadonly = () => {
+    const get = this.get
+    const peekValue = () => this.peek
+    return {
+      get peek() {
+        return peekValue()
+      },
+      get value() {
+        return get()
+      },
+      observe: this.observe,
+      subscribe: this.subscribe,
+      unsubscribe: this.unsubscribe,
+    } as ReadonlySignal<T>
   }
 
   protected requestUpdate() {
@@ -384,7 +402,7 @@ export class Signal<T> extends SignalBase<T> {
  * ```
  */
 export const signal = <T>(value: T, options?: SignalOptions<T>) =>
-  new Signal(value, options) as Signal<T>
+  new Signal(value, options)
 
 /**
  * Creates a computed signal that tracks signal dependencies, can be tracked by
