@@ -63,14 +63,23 @@ describe('html', () => {
 
   it('does not render false as a text node', () => {
     const shouldRender = false
+    const computedValue = computed(() => shouldRender && 'Should not render')
     const el = html`<p>Hello world!</p>
-      ${shouldRender && html`<p>Should not render</p>`}`
+      <p>${shouldRender && 'Should not render'}</p>
+      <p>${computedValue}</p>`
     render(el, window.document.body)
 
     expect(window.document.body.children[0]).toMatchObject({
       tagName: 'P',
       textContent: 'Hello world!',
     })
-    expect(window.document.body.children[1]).toBeUndefined()
+    expect(window.document.body.children[1]).toMatchObject({
+      tagName: 'P',
+      textContent: '',
+    })
+    expect(window.document.body.children[2]).toMatchObject({
+      tagName: 'P',
+      textContent: '',
+    })
   })
 })
