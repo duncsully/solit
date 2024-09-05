@@ -215,16 +215,3 @@ return html`
   </div>
 `
 ```
-
-## Recipes
-
-#### Readonly state
-
-If you want to expose a writable signal's value to another component but don't want to allow it to update the value, you can either pass only the `get` method or you can wrap it in a computed signal.
-
-```ts
-const count = signal(0)
-
-const getter = count.get
-const readonlyCount = computed(count.get)
-```
