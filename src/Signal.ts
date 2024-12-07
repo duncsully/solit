@@ -1,3 +1,13 @@
+/*
+Idea: Signalize - Turn any observable object into a signal
+- const signalized = signalize(observable.subscribe)
+- const computedUsingObservable = computed(get => get(observable.subscribe) * 2)
+  - Maybe assume that if object is a function, it's the subscribe reference, else it's an object
+    with a subscribe method?
+- Could no longer count on dependencies to not update if the value hasn't changed,
+  would need to track the last value and compare it to the new value within the computed
+*/
+
 export type Subscriber<T> = (value: T) => void
 
 export type SignalOptions<T> = {
@@ -10,14 +20,6 @@ export type SignalOptions<T> = {
    * Optional name for debugging purposes
    */
   name?: string
-}
-
-export type ReadonlySignal<T> = {
-  readonly peek: T
-  readonly value: T
-  observe(subscriber: Subscriber<T>): () => void
-  subscribe(subscriber: Subscriber<T>): () => void
-  unsubscribe(subscriber: Subscriber<T>): void
 }
 
 export const notEqual = <T>(
@@ -113,7 +115,7 @@ export class SignalBase<T> {
     const caller = SignalBase.context.at(-1)
     const value = this.peek
     if (caller) {
-      caller.setCacheDependency(this, value)
+      caller.setDependency(this, value)
     }
     return value
   }
@@ -130,6 +132,11 @@ export class SignalBase<T> {
   }
 
   protected _subscribers = new Set<Subscriber<T>>()
+  /**
+   * Tracks what the last value was that was broadcasted to subscribers
+   * in case the value changes but changes back to the last broadcasted value
+   * before the next update. This prevents unnecessary updates to subscribers.
+   */
   protected _lastBroadcastValue: T | undefined
 }
 
@@ -144,17 +151,6 @@ export type ComputedOptions<T> = SignalOptions<T> & {
    * values as in the cache, cache value is used
    */
   cacheSize?: number
-  /**
-   * If true, will compute value on idle callback when dependencies change while
-   * there are no subscribers
-   */
-  computeOnIdle?: boolean
-  /**
-   * If set to a number, when there is at least one subscriber the signal will be
-   * recomputed on the specified millisecond interval (using `setInterval`), updating
-   * any subscribers if the value has changed
-   */
-  computeOnInterval?: number
 }
 
 /**
@@ -163,28 +159,13 @@ export type ComputedOptions<T> = SignalOptions<T> & {
  */
 export class Computed<T> extends SignalBase<T> {
   constructor(protected getter: () => T, options: ComputedOptions<T> = {}) {
-    const {
-      cacheSize = 1,
-      computeOnIdle = false,
-      computeOnInterval,
-      ..._options
-    } = options
+    const { cacheSize = 1, ..._options } = options
     super(undefined as T, _options)
-    // Disable cache if computeOnInterval is set because it means we likely have
-    // dependencies that can't be tracked automatically
-    this._cacheSize = computeOnInterval !== undefined ? 0 : cacheSize
-    this._computeOnInterval = computeOnInterval
-    this._computeOnIdle = computeOnIdle && !!globalThis.requestIdleCallback
-    if (this._computeOnIdle) {
-      this.requestIdleComputed()
-    }
+
+    this._cacheSize = cacheSize
   }
 
   get peek() {
-    if (this._idleCallbackHandle) {
-      cancelIdleCallback(this._idleCallbackHandle)
-      this._idleCallbackHandle = undefined
-    }
     const cachedResult = this._cache.find((cache) => {
       for (const [dependency, value] of cache.dependencies) {
         if (dependency.peek !== value) return false
@@ -208,11 +189,6 @@ export class Computed<T> extends SignalBase<T> {
     // Need to track dependencies now that we have a subscriber
     if (this._subscribers.size === 1) {
       this.computeValue()
-      if (this._computeOnInterval) {
-        this._intervalHandle = globalThis.setInterval(() => {
-          this.updateSubscribers()
-        }, this._computeOnInterval)
-      }
     }
     return unsubscribe
   }
@@ -225,14 +201,10 @@ export class Computed<T> extends SignalBase<T> {
     if (!this._subscribers.size) {
       this._toUnsubscribe.forEach(Reflect.apply)
       this._toUnsubscribe.clear()
-      if (this._intervalHandle) {
-        clearInterval(this._intervalHandle)
-        this._intervalHandle = undefined
-      }
     }
   }
 
-  setCacheDependency = (dependency: SignalBase<any>, value: any) => {
+  setDependency = (dependency: SignalBase<any>, value: any) => {
     // Don't bother tracking dependencies if there are no subscribers
     if (this._subscribers.size) {
       this._toUnsubscribe.add(dependency.observe(this.updateSubscribers))
@@ -245,9 +217,6 @@ export class Computed<T> extends SignalBase<T> {
 
   updateSubscribers = () => {
     super.updateSubscribers()
-    if (!this._subscribers.size && this._computeOnIdle) {
-      this.requestIdleComputed()
-    }
   }
 
   protected computeValue() {
@@ -269,23 +238,9 @@ export class Computed<T> extends SignalBase<T> {
     SignalBase.context.pop()
   }
 
-  protected requestIdleComputed() {
-    if (this._idleCallbackHandle) {
-      cancelIdleCallback(this._idleCallbackHandle)
-    }
-    this._idleCallbackHandle = requestIdleCallback(() => {
-      this._idleCallbackHandle = undefined
-      this.computeValue()
-    })
-  }
-
   protected _cacheSize = 1
   protected _cache = [] as CachedResult<T>[]
-  protected _computeOnIdle = false
-  protected _idleCallbackHandle: number | undefined
   protected _toUnsubscribe = new Set<() => void>()
-  protected _computeOnInterval: number | undefined
-  protected _intervalHandle: ReturnType<typeof setInterval> | undefined
 }
 
 /**
@@ -328,13 +283,8 @@ export class Signal<T> extends SignalBase<T> {
    * Set a value and update subscribers if it has changed
    */
   set = (value: T) => {
-    const { hasChanged = notEqual } = this._options
-    const prevValue = this._value
-
-    if (hasChanged(prevValue, value)) {
-      this._value = value
-      this.requestUpdate()
-    }
+    this._value = value
+    this.requestUpdate()
   }
 
   /**
@@ -360,22 +310,6 @@ export class Signal<T> extends SignalBase<T> {
    */
   reset = () => {
     this.set(this._initialValue)
-  }
-
-  getReadonly = () => {
-    const get = this.get
-    const peekValue = () => this.peek
-    return {
-      get peek() {
-        return peekValue()
-      },
-      get value() {
-        return get()
-      },
-      observe: this.observe,
-      subscribe: this.subscribe,
-      unsubscribe: this.unsubscribe,
-    } as ReadonlySignal<T>
   }
 
   protected requestUpdate() {

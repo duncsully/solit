@@ -74,9 +74,8 @@ Writable signals additionally have the following setters and methods:
 - `update(updater)` - updates the current value with an updater function that is passed the current value and returns the new value
 - `reset()` - resets the current value to the initial value
 - `mutate(callback)` - runs a callback that mutates the current value (typically an object or array) and then requests an update
-- `getReadonly` - returns a readonly signal without any writable methods
 
-Computed signals are optimized to only compute when their values are requested, either by calling their `get()` or `peek()` method directly or if they have subscribers, and then by default this value is memoized for as long as dependencies don't update.
+Computed signals are optimized to only compute when their values are requested and then by default this value is memoized for as long as dependencies don't update.
 
 ## Templates
 
@@ -153,16 +152,6 @@ count.set(2) // Computed 3rd time -> 4, cached 0 -> 0, 1 -> 2, 2 -> 4
 count.set(1) // Read from cache 1 -> 2
 count.set(3) // Computed 4th time -> 8, cache size exceeded, removed 0 -> 0, cached 1 -> 2, 2 -> 4, 3 -> 6
 ```
-
-#### Computing values on idle
-
-Computed signals are normally evaluated lazily, computing only when their value is requested. This avoids wasting work done for values that won't be used immediately, but in rare cases (e.g. when a computed value depends on an API request) it can worsen the experience when an expensive computation is suddenly demanded. You can optionally choose to compute values on idle by passing `computeOnIdle: true` to the options. This will cause the computed signal to compute its value on idle both when it is created and when any of its dependencies change. This means the latest value will be immediately available when requested.
-
-**Note:** This requires having `cacheSize` set to at least 1.
-
-#### Computed values on an interval
-
-Sometimes you want to proactively recompute a value on a regular interval, e.g. to track the time since an action happened. You can use the `computeOnInterval` option to pass a number of milliseconds to recompute on that interval as long as there is at least one subscriber. Subscribers will still only be updated if the computed value changes. Note that this will disable memoization (ignoring `cacheSize`).
 
 #### computedGroup - Computing multiple values in one calculation
 
