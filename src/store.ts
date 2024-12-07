@@ -48,6 +48,54 @@ TODO:
 - Undo/redo/reset support?
 */
 
+/*
+TODO:
+- Replace store with this?
+- Figure out how best to expose peek functionality and maybe underlying signal (_ vs $)
+- Proxy vs object with descriptors?
+*/
+export const state = <T extends Object>(initialState: T) => {
+  const result = Object.create(null)
+
+  Object.keys(initialState).forEach((key) => {
+    const descriptor = Object.getOwnPropertyDescriptor(initialState, key)!
+    if (descriptor.get) {
+      const prop = computed(descriptor.get.bind(result))
+      Object.defineProperty(result, key, {
+        enumerable: true,
+        get() {
+          return prop.get()
+        },
+      })
+      Object.defineProperty(result, key + '$', {
+        get() {
+          return prop.peek
+        },
+      })
+      return
+    } else {
+      const prop = signal(descriptor.value)
+      Object.defineProperty(result, key, {
+        enumerable: true,
+        get() {
+          return prop.get()
+        },
+        set(value) {
+          prop.set(value)
+        },
+      })
+      Object.defineProperty(result, key + '$', {
+        get() {
+          return prop.peek
+        },
+      })
+    }
+  })
+  return result as T & {
+    [K in keyof T as `${string & K}$`]: T[K]
+  }
+}
+
 /**
  * Accepts an object and returns a new object with all of the values wrapped in
  * signals. If a value is an object, then it will be recursively wrapped. Properties

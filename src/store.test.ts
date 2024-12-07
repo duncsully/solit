@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { store } from './store'
+import { state, store } from './store'
 import { computed, signal, watch } from './Signal'
 
 describe('store', () => {
@@ -280,5 +280,76 @@ describe('store', () => {
     expect(test.nested.$?.value.get()).toBe(test.nested.value)
     expect(test.$?.nested.get().$?.value.get()).toBe(test.nested.value)
     expect(test.arr.$?.[1].get()).toBe(test.arr[1])
+  })
+})
+
+// TODO: Clean up these tests
+describe('state', () => {
+  it('works', () => {
+    const something = state({
+      width: 2,
+      height: 3,
+      get area() {
+        return something.width * something.height
+      },
+    })
+
+    expect(something.width).toBe(2)
+    expect(something.height).toBe(3)
+    expect(something.area).toBe(6)
+
+    const subscriber = vi.fn()
+    watch(() => {
+      subscriber(something.area)
+    })
+
+    something.height = 4
+
+    expect(subscriber).toHaveBeenCalledWith(8)
+
+    const parent = state({
+      child: state({
+        value: 'hi',
+      }),
+    })
+
+    expect(parent.child.value).toBe('hi')
+
+    watch(() => {
+      subscriber(parent.child.value)
+    })
+
+    parent.child.value = 'what'
+
+    expect(subscriber).toHaveBeenCalledWith('what')
+
+    parent.child = state({
+      value: 'crazy',
+    })
+
+    expect(subscriber).toHaveBeenCalledWith('crazy')
+  })
+
+  it('peeks', () => {
+    const test = state({
+      width: 1,
+      height: 2,
+      get area() {
+        return test.width$ * this.height
+      },
+    })
+
+    const sub = vi.fn()
+    watch(() => {
+      sub(test.area)
+    })
+
+    test.width = 3
+
+    expect(sub).not.toHaveBeenCalledWith(6)
+
+    test.height = 4
+
+    expect(sub).toHaveBeenCalledWith(12)
   })
 })
