@@ -146,7 +146,7 @@ Alternatively, if you want to prevent memoization and always recompute values, y
 
 ```ts
 const count = signal(0)
-const doubled = computed(() => count.get() * 2, { cache: 3 }) // A super expensive computation, right?
+const doubled = computed(() => count.get() * 2, { cacheSize: 3 }) // A super expensive computation, right?
 doubled.subscribe(console.log) // Computed 1st time -> 0, cached 0 -> 0
 count.set(1) // Computed 2nd time -> 2, cached 0 -> 0, 1 -> 2
 count.set(2) // Computed 3rd time -> 4, cached 0 -> 0, 1 -> 2, 2 -> 4
