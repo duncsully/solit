@@ -15,86 +15,37 @@ type WritableKeysOf<T> = {
   >
 }[keyof T]
 
-type Store<T> = {
+type Store<T> = T /* {
   [K in keyof T]: T[K] extends Function
     ? T[K]
     : T[K] extends Object
     ? Store<T[K]>
     : T[K]
-} & {
-  readonly $?: {
+} */ & {
+  readonly $: {
     [K in keyof T]: K extends WritableKeysOf<T>
       ? T[K] extends Object
         ? Signal<Store<T[K]>>
         : Signal<T[K]>
       : Computed<T[K]>
   }
+} & {
+  readonly [K in keyof T as `${string & K}_`]: T[K]
+} & {
+  readonly [K in keyof T as `${string & K}$`]: K extends WritableKeysOf<T>
+    ? Signal<T[K]>
+    : Computed<T[K]>
 }
 
 /* 
 TODO:
-- Figure out how to remove the ? from the $ property without assignment type errors
+- Figure out how to remove the ? from the $ property without assignment type errors if recursively proxying
+  - https://github.com/microsoft/TypeScript/issues/43826
 - Handle setters?
-- Provide peek function for inside store declarations? e.g.
-  const store = store({
-    width: 1,
-    height: 2,
-    get area() {
-      return peek(this.width) * this.height
-    },
-  })
 - Test for memory leaks and junk
 - Better array support
 - Undo/redo/reset support?
 */
-
-/*
-TODO:
-- Replace store with this?
-- Figure out how best to expose peek functionality and maybe underlying signal (_ vs $)
-- Proxy vs object with descriptors?
-*/
-export const state = <T extends Object>(initialState: T) => {
-  const result = Object.create(null)
-
-  Object.keys(initialState).forEach((key) => {
-    const descriptor = Object.getOwnPropertyDescriptor(initialState, key)!
-    if (descriptor.get) {
-      const prop = computed(descriptor.get.bind(result))
-      Object.defineProperty(result, key, {
-        enumerable: true,
-        get() {
-          return prop.get()
-        },
-      })
-      Object.defineProperty(result, key + '$', {
-        get() {
-          return prop.peek
-        },
-      })
-      return
-    } else {
-      const prop = signal(descriptor.value)
-      Object.defineProperty(result, key, {
-        enumerable: true,
-        get() {
-          return prop.get()
-        },
-        set(value) {
-          prop.set(value)
-        },
-      })
-      Object.defineProperty(result, key + '$', {
-        get() {
-          return prop.peek
-        },
-      })
-    }
-  })
-  return result as T & {
-    [K in keyof T as `${string & K}$`]: T[K]
-  }
-}
 
 /**
  * Accepts an object and returns a new object with all of the values wrapped in
@@ -153,9 +104,9 @@ export const store = <T extends object>(initialState: T) => {
         return signal
       } else {
         let value = target[key]
-        if (value instanceof Object) {
+        /* if (value instanceof Object) {
           value = createProxy(value, keyPath)
-        }
+        } */
         const sig = (signalMap[keyPath] = signal(value))
         return sig
       }
@@ -172,6 +123,12 @@ export const store = <T extends object>(initialState: T) => {
             },
           })
         }
+        if (key.toString().endsWith('_')) {
+          return getSignal(target, key.toString().slice(0, -1)).peek
+        }
+        if (key.toString().endsWith('$')) {
+          return getSignal(target, key.toString().slice(0, -1))
+        }
         return getSignal(target, key).get()
       },
       set(_, key, value) {
@@ -179,10 +136,10 @@ export const store = <T extends object>(initialState: T) => {
         const sig = signalMap[keyPath]
         let newValue = value
         batch(() => {
-          if (value instanceof Object) {
+          /* if (value instanceof Object) {
             newValue = createProxy(value, keyPath)
             recursivelyUpdateSignals(value, keyPath)
-          }
+          } */
           if (sig instanceof Signal) {
             sig.set(newValue)
           } else {
@@ -191,13 +148,13 @@ export const store = <T extends object>(initialState: T) => {
         })
         return true
       },
-      apply(target, thisArg, argArray) {
+      /* apply(target, thisArg, argArray) {
         let result
         batch(() => {
           result = target.apply(thisArg, argArray)
         })
         return result
-      },
+      }, */
     })
     return result
   }

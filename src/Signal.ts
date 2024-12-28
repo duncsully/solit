@@ -1,13 +1,3 @@
-/*
-Idea: Signalize - Turn any observable object into a signal
-- const signalized = signalize(observable.subscribe)
-- const computedUsingObservable = computed(get => get(observable.subscribe) * 2)
-  - Maybe assume that if object is a function, it's the subscribe reference, else it's an object
-    with a subscribe method?
-- Could no longer count on dependencies to not update if the value hasn't changed,
-  would need to track the last value and compare it to the new value within the computed
-*/
-
 export type Subscriber<T> = (value: T) => void
 
 export type SignalOptions<T> = {

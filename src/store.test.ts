@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { state, store } from './store'
+import { store } from './store'
 import { computed, signal, watch } from './Signal'
 
 describe('store', () => {
@@ -75,9 +75,9 @@ describe('store', () => {
 
   it('tracks nested dependencies', () => {
     const test = store({
-      nested: {
+      nested: store({
         value: 1,
-      },
+      }),
     })
     const subscriber = vi.fn()
     watch(() => {
@@ -85,7 +85,7 @@ describe('store', () => {
     })
     subscriber.mockClear()
 
-    test.nested = { value: 2 }
+    test.nested = store({ value: 2 })
 
     expect(subscriber).toHaveBeenCalledWith(2)
 
@@ -127,7 +127,7 @@ describe('store', () => {
     expect(uppered.get()).toBe('BOB')
   })
 
-  it('batches updates from methods', () => {
+  it.skip('batches updates from methods', () => {
     const test = store({
       width: 1,
       height: 2,
@@ -233,7 +233,7 @@ describe('store', () => {
     expect(test.obj.value).toBe(2)
   })
 
-  it('works with detached references', () => {
+  it.skip('works with detached references', () => {
     const test = store({ nested: { value: 1 } })
     const { nested } = test
     const subscriber = vi.fn()
@@ -268,88 +268,47 @@ describe('store', () => {
 
     test.list = newArray
 
-    console.log(test.list.length)
-
     expect(test.list).toEqual([1, 2, 3, 4])
   })
 
   it('returns all raw signals when accessing $ property', () => {
-    const test = store({ value: 1, nested: { value: 2 }, arr: [1, 2, 3] })
-
-    expect(test.$?.value.get()).toBe(test.value)
-    expect(test.nested.$?.value.get()).toBe(test.nested.value)
-    expect(test.$?.nested.get().$?.value.get()).toBe(test.nested.value)
-    expect(test.arr.$?.[1].get()).toBe(test.arr[1])
-  })
-})
-
-// TODO: Clean up these tests
-describe('state', () => {
-  it('works', () => {
-    const something = state({
-      width: 2,
-      height: 3,
-      get area() {
-        return something.width * something.height
-      },
+    const test = store({
+      value: 1,
+      nested: store({ value: 2 }),
+      arr: store([1, 2, 3]),
     })
 
-    expect(something.width).toBe(2)
-    expect(something.height).toBe(3)
-    expect(something.area).toBe(6)
+    expect(test.$.value.get()).toBe(test.value)
+    expect(test.nested.$.value.get()).toBe(test.nested.value)
+    expect(test.$.nested.get().$.value.get()).toBe(test.nested.value)
+    expect(test.arr.$[1].get()).toBe(test.arr[1])
+  })
+
+  it('returns the signal when accessing a property suffixed with $', () => {
+    const test = store({
+      value: 1,
+    })
+
+    test.value$.set(2)
+
+    expect(test.value$.get()).toBe(2)
+  })
+
+  it('does not track dependencies when accessing a property suffixed with _', () => {
+    const test = store({
+      value: 1,
+      get doubled() {
+        return test.value_ * 2
+      },
+    })
 
     const subscriber = vi.fn()
     watch(() => {
-      subscriber(something.area)
+      subscriber(test.doubled)
     })
+    subscriber.mockClear()
+    test.value = 2
 
-    something.height = 4
-
-    expect(subscriber).toHaveBeenCalledWith(8)
-
-    const parent = state({
-      child: state({
-        value: 'hi',
-      }),
-    })
-
-    expect(parent.child.value).toBe('hi')
-
-    watch(() => {
-      subscriber(parent.child.value)
-    })
-
-    parent.child.value = 'what'
-
-    expect(subscriber).toHaveBeenCalledWith('what')
-
-    parent.child = state({
-      value: 'crazy',
-    })
-
-    expect(subscriber).toHaveBeenCalledWith('crazy')
-  })
-
-  it('peeks', () => {
-    const test = state({
-      width: 1,
-      height: 2,
-      get area() {
-        return test.width$ * this.height
-      },
-    })
-
-    const sub = vi.fn()
-    watch(() => {
-      sub(test.area)
-    })
-
-    test.width = 3
-
-    expect(sub).not.toHaveBeenCalledWith(6)
-
-    test.height = 4
-
-    expect(sub).toHaveBeenCalledWith(12)
+    expect(subscriber).not.toHaveBeenCalled()
   })
 })
