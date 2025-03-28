@@ -1,5 +1,4 @@
-import { nothing } from 'lit-html'
-import { Component } from './component'
+import { HTMLTemplateResult, nothing } from 'lit-html'
 import { Signal, batch, computed, signal } from './Signal'
 import { store } from './store'
 
@@ -28,8 +27,10 @@ type ParamMap<T extends string> = {
 }
 
 type RouteMap<T> = {
-  [K in keyof T & string]: T[K] extends Component<[ParamMap<K>]>
-    ? Component<[ParamMap<K>]>
+  [K in keyof T & string]: T[K] extends (
+    props: ParamMap<K>
+  ) => HTMLTemplateResult
+    ? (props: ParamMap<K>) => HTMLTemplateResult
     : never
 }
 

@@ -2,21 +2,20 @@
 
 Solid, but with lit-html. "Components" are just functions that setup reactive lit-html templates. State and effects are managed with writable and computed signals that automatically track dependent signals. No JSX, no manual dependency tracking, no rules of hooks, no VDOM, no compiler.
 
-Only five primitives are needed to build reactive components:
+Only four primitives are needed to build reactive components:
 
-- `component(templateFactory)` - a function to turn a template factory into a component with a lifecycle
 - `signal(initialValue)` - a writable signal that can be tracked by computed signals and effects
 - `computed(getter)` - a computed signal that tracks its dependencies, can be tracked itself, and is lazily evaluated
-- `effect(callback)` - a callback that is run when its dependencies change, optionally running a returned cleanup callback
+- `effects(...effectCbs)` - a directive that ties all provided effect callbacks to the given element
 - `html` - a template literal tagging function to build reactive lit-html templates for generating DOM
 
 The returned template results of calling a component can then be rendered with lit-html's `render` function.
 
 ```ts
-import { component, signal, computed, effect, html, Signal } from 'solit'
+import { signal, computed, effects, html, Signal } from 'solit'
 import { render } from 'lit-html'
 
-const Counter = component(() => {
+const Counter = () => {
   const count = signal(0)
 
   const increment = () => count.update((current) => current + 1)
@@ -33,14 +32,16 @@ const Counter = component(() => {
       <p>Triple: ${() => count.get() * 3}</p>
     </div>
   `
-})
+}
 
-const Doubled = component(({ count }: { count: Signal<number> }) => {
+const Doubled = ({ count }: { count: Signal<number> }) => {
   // Automatically tracks dependency `count`
   const doubled = computed(() => count.get() * 2)
 
-  // Runs whenever `doubled` changes
-  effect(() => {
+  // Define an effect
+  const logDoubled = () => {
+    // Accesses a signal, so it will be tracked as a dependency
+    // and rerun this effect whenever it changes
     console.log('doubled:', doubled.get())
 
     // Runs before the next effect and when the template returned
@@ -48,10 +49,11 @@ const Doubled = component(({ count }: { count: Signal<number> }) => {
     return () => {
       console.log('cleaning up doubled effect')
     }
-  })
+  }
 
-  return html`<p>Double: ${doubled}</p>`
-})
+  // Bind effects to the element
+  return html`<p ${effects(logDoubled)}>Double: ${doubled}</p>`
+}
 
 render(Counter(), document.body)
 ```
@@ -86,9 +88,15 @@ Templates are built using a slightly enhanced version of lit-html. The `html` te
 - Functions are reactive to any signal updates inside of them, likewise surgically updating the DOM
 - Functions used as event handlers via `@eventname=${someFunction}` will automatically batch signal updates so that change diffing the signals is deferred until all signal updates have been processed, preventing unnecessary DOM updates
 
+### Effects
+
+Effects are a way to run side effects in response to changes in signals. They are similar to the `useEffect` hook in React, but since components don't really exist at runtime in SoLit, they are not bound to a component lifecycle. Instead, they are bound to the element in the template via the `effects` directive. 
+
+You can pass in one or more effect callbacks to the `effects` directive, and they will be run in the order they are passed in when the template is rendered. They can optionally return a cleanup function. Whenever their dependencies change, the cleanup function will be called if it exists, and then the effect will be run again. The cleanup function will also be called when the element is removed from the DOM.
+
 ### bind directive
 
-Solit provides a `bind` directive to two-way bind an element's attribute or property to a signal. By default it binds to the input event, but you can pass an event name as the second argument to bind to a different event.
+SoLit provides a `bind` directive to two-way bind an element's attribute or property to a signal. By default it binds to the input event, but you can pass an event name as the second argument to bind to a different event.
 
 ```ts
 const firstName = signal('')
