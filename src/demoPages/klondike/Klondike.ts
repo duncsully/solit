@@ -1,9 +1,9 @@
 import { styleMap } from 'lit-html/directives/style-map.js'
-import { Signal, batch, computed, signal } from '../Signal'
-import { html } from '../html'
+import { Signal, batch, computed, signal } from '../../Signal'
+import { html } from '../../html'
 import { Card, Rank, Suit } from './Card'
 import { repeat } from 'lit-html/directives/repeat.js'
-import { component, effect } from '../component'
+import { effects } from '../../directives/EffectDirective'
 
 // Validate hash state before using
 // Undo button?
@@ -24,7 +24,7 @@ function shuffleArray<T extends unknown[]>(array: T) {
 
 type Pile = number[]
 
-export const Klondike = component(() => {
+export const Klondike = () => {
   const stock = signal<Pile>([])
   const waste = signal<Pile>([])
   /** Negative for use with .at() to make it easier to treat arrays as stacks */
@@ -271,7 +271,7 @@ export const Klondike = component(() => {
   }
 
   // Make popstate reload state from hash
-  effect(() => {
+  const loadHash = () => {
     const listener = () => {
       if (ignorePop.peek) {
         ignorePop.set(false)
@@ -282,7 +282,7 @@ export const Klondike = component(() => {
     }
     window.addEventListener('popstate', listener)
     return () => window.removeEventListener('popstate', listener)
-  })
+  }
 
   const hash = window.location.hash.slice(1)
   hash ? loadState(hash) : newGame()
@@ -300,7 +300,7 @@ export const Klondike = component(() => {
     borderRadius: '0.75rem',
   })
 
-  return html`<div>
+  return html`<div ${effects(loadHash)}>
     <button @click=${handleNewGame}>New Game</button>
     <div
       style=${styleMap({
@@ -374,7 +374,7 @@ export const Klondike = component(() => {
       )}
     </div>
   </div>`
-})
+}
 
 const getValue = (card: number) => card % 13
 
