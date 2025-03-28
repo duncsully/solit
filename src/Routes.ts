@@ -174,7 +174,7 @@ export const Router = <K, T extends RouteMap<K>>(
         })
         return formattedRoute
       }
-    })
+    }) as keyof T | undefined
   })
 
   return computed(() => routes[activePath.get() ?? '']?.(params.$) ?? nothing)
