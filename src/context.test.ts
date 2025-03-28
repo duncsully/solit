@@ -1,5 +1,7 @@
 import { createContext } from './context'
 import { describe, expect, it } from 'vitest'
+import { html } from './html'
+import { render } from 'lit-html'
 
 describe('context', () => {
   describe('createContext', () => {
@@ -54,6 +56,23 @@ describe('context', () => {
       })
       expect(context.value).toBe('value')
       expect(result).toBe('result')
+    })
+
+    it('works with html', () => {
+      const context = createContext('value')
+      const Consumer = () => {
+        return html`<div>${context.value}</div>`
+      }
+      const Provider = () => {
+        return context.provide('new value', Consumer)
+      }
+
+      render(html`<div>${Provider()}</div>`, document.body)
+
+      expect(document.body.children[0]).toMatchObject({
+        tagName: 'DIV',
+        textContent: 'new value',
+      })
     })
   })
 })
