@@ -286,16 +286,6 @@ export class Signal<T> extends SignalBase<T> {
   }
 
   /**
-   * Mutate the value with a function that takes the current value and mutates
-   * it, and update subscribers if it has changed. Note: you will need to implement
-   * your own `hasChanged` option for this to work with objects and arrays.
-   */
-  mutate = (mutator: (currentValue: T) => void) => {
-    mutator(this._value)
-    this.requestUpdate()
-  }
-
-  /**
    * Reset the value to the initial value
    */
   reset = () => {

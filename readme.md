@@ -75,7 +75,6 @@ Writable signals additionally have the following setters and methods:
 - `value` - a setter property that wraps the `set` method
 - `update(updater)` - updates the current value with an updater function that is passed the current value and returns the new value
 - `reset()` - resets the current value to the initial value
-- `mutate(callback)` - runs a callback that mutates the current value (typically an object or array) and then requests an update
 
 Computed signals are optimized to only compute when their values are requested and then by default this value is memoized for as long as dependencies don't update.
 
@@ -147,28 +146,6 @@ const array = signal([1], {
 })
 
 array.set([1]) // no change
-```
-
-#### Mutating
-
-You can use the `mutate` method to request an update after running the callback.
-
-**Note:** This will require configuring the `hasChanged` option since arrays and objects will still have the same reference after mutation.
-
-```ts
-let prev = []
-const array = signal([1], {
-  hasChanged: (_, next) => {
-    const changed =
-      prev.length !== next.length || prev.some((value, i) => value !== next[i])
-    prev = [...next]
-    return changed
-  },
-})
-
-array.mutate((current) => current.push(2)) // will update subscribers
-
-array.mutate((current) => current.sort()) // will request update but has not changed, so will not update subscribers
 ```
 
 #### Memoization

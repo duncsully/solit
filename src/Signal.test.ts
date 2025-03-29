@@ -406,20 +406,6 @@ describe('Signal', () => {
     })
   })
 
-  describe('mutate', () => {
-    it('checks for update even if value reference is the same', () => {
-      const array = new Signal(['a', 'b', 'c'], {
-        hasChanged: () => true,
-      })
-      const subscriber = vi.fn()
-      array.observe(subscriber)
-
-      array.mutate((value) => value.push('d'))
-
-      expect(subscriber).toHaveBeenCalledWith(['a', 'b', 'c', 'd'])
-    })
-  })
-
   describe('observe + set', () => {
     it('calls all callbacks provided to subscribe method if value changed', () => {
       const number = new Signal(1)
