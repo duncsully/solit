@@ -1,6 +1,10 @@
 import { HTMLTemplateResult, nothing } from 'lit-html'
 import { Signal, batch, computed, signal } from './Signal'
 import { store } from './store'
+import { URLPattern } from 'urlpattern-polyfill'
+
+// @ts-ignore
+globalThis.URLPattern ??= URLPattern
 
 type ParamIfRequired<T> = T extends `${string}?` ? never : T
 type ParamIfOptional<T> = T extends `${infer Param}?` ? Param : never
@@ -37,9 +41,6 @@ type RouteMap<T> = {
 // TODO better type checking to prevent invalid routes
 // TODO Way to load data before returning for SSR?
 // TODO types for modifiers * and +
-
-// @ts-ignore
-globalThis.URLPattern ??= await import('urlpattern-polyfill')
 
 const currentPath = signal(window.location.hash.slice(1))
 const setPath = (path: string) => {
