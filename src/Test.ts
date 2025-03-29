@@ -2,13 +2,14 @@ import { styleMap } from 'lit-html/directives/style-map.js'
 import { Signal, computed, signal } from './Signal'
 import { repeat } from 'lit-html/directives/repeat.js'
 import { html } from './html'
-import { component, effect } from './component'
 import { when } from 'lit-html/directives/when.js'
-import { render } from 'lit-html'
+import { HTMLTemplateResult, render } from 'lit-html'
 import { Router, setupHistoryRouting } from './Routes'
 import { store } from './store'
+import { effects } from './directives/EffectDirective'
+import { createContext } from './context'
 
-const Hexagon = component(() => {
+const Hexagon = () => {
   const containerStyles = styleMap({
     marginLeft: '12px',
     height: '40px',
@@ -48,31 +49,33 @@ const Hexagon = component(() => {
       <div style=${bottomLeftLineStyles}></div>
     </div>
   `
-})
+}
 
-export const Test = component((label: string, start: number = 0) => {
+export const Test = (label: string, start: number = 0) => {
   const count = signal(start, { name: 'count' })
 
-  effect(() => {
+  const logCount = () => {
     console.log('count is now', count.get())
 
     return () => console.log('cleaning up count effect')
-  })
+  }
 
   const doubled = computed(() => count.get() * 2, { name: 'doubled' })
 
-  effect(() => {
+  const logDoubled = () => {
     console.log('doubled is now', doubled.get())
     return () => console.log('cleaning up doubled effect')
-  })
+  }
 
   const handleClick = () => {
     count.set(count.get() + 1)
   }
 
-  return html`<button @click=${handleClick}>${label} ${count}</button>
+  return html`<button ${effects(logCount, logDoubled)} @click=${handleClick}>
+      ${label} ${count}
+    </button>
     <div style="margin-top: 16px; width: 200px;">${Hexagon()}</div>`
-})
+}
 
 /* const Doubled = (count: Writable<number>) => {
   const doubled = computed(() => count.get() * 2)
@@ -168,12 +171,12 @@ export const TodoItem = (todo: Todo) => {
       textDecoration: todo.done ? 'line-through' : 'none',
     })
 
-  effect(() => {
+  const logChecked = () => {
     console.log('checked:', todo.done)
-  })
+  }
 
   return html`
-    <div>
+    <div ${effects(logChecked)}>
       <input
         type="checkbox"
         .checked=${() => todo.done}
@@ -193,46 +196,50 @@ export const TodoItem = (todo: Todo) => {
   `
 }
 
-const Nesteder = component(() => {
+const Nesteder = () => {
   const count = signal(0)
-  effect(() => {
+
+  const logCount = () => {
     console.log('running effect 1.1.1')
     console.log('inner count is', count.get())
     return () => console.log('cleaning up effect 1.1.1')
-  })
-  return html`<div>
+  }
+
+  return html`<div ${effects(logCount)}>
     subtemplate 1.1.1<button @click=${() => count.update((value) => value + 1)}>
       Increment
     </button>
   </div>`
-})
+}
 
-const NestedEffectTest = component((count: Signal<number>) => {
-  effect(() => {
+const NestedEffectTest = (count: Signal<number>) => {
+  const newEffect = () => {
     console.log('running effect 1.1')
-    // Passed in from parent
     console.log('outer count is', count.get())
     return () => console.log('cleaning up effect 1.1')
-  })
+  }
 
-  return html`<div>subtemplate 1.1</div>
+  return html`<div ${effects(newEffect)}>subtemplate 1.1</div>
     ${Nesteder()}`
-})
+}
 
-const EffectTest = component(() => {
+const EffectTest = () => {
   const showingSubtemplate = signal(true)
   const count = signal(0)
-  effect(() => {
+  const effect1 = () => {
     console.log('running effect 1')
     return () => console.log('cleaning up effect 1')
-  })
+  }
 
-  effect(() => {
+  const effect2 = () => {
     return () => console.log('cleaning up effect 2')
-  })
+  }
 
   return html`
-    <button @click=${() => showingSubtemplate.update((current) => !current)}>
+    <button
+      ${effects(effect1, effect2)}
+      @click=${() => showingSubtemplate.update((current) => !current)}
+    >
       Toggle subtemplate
     </button>
     <button @click=${() => (count.value += 1)}>Increment</button>
@@ -240,7 +247,35 @@ const EffectTest = component(() => {
     <div>template 1</div>
     ${() => when(showingSubtemplate.get(), () => NestedEffectTest(count))}
   `
-})
+}
+
+const themeContext = createContext('system default')
+
+const ContextConsumer = () => {
+  const theme = themeContext.value
+  return html`<div>${theme}</div>`
+}
+
+const ContextTest = () => {
+  const showInner = signal(true)
+  return html`
+    <div>${ContextConsumer()}</div>
+    ${themeContext.provide(
+      'dark',
+      () => html`<div>
+        ${ContextConsumer()}
+        ${() =>
+          showInner.value && themeContext.provide('light', ContextConsumer)}
+        ${ContextConsumer()}
+      </div>`
+    )}
+
+    <button @click=${() => showInner.set(!showInner.get())}>
+      Toggle inner
+    </button>
+    ${ContextConsumer()}
+  `
+}
 
 export const App = () => {
   setupHistoryRouting()
@@ -250,6 +285,7 @@ export const App = () => {
     <a href="/todo">Todo list</a>
     <a href="/leak-test">Memory leak test</a>
     <a href="/nested">Nested</a>
+    <a href="/context">Context</a>
     <div>
       ${Router({
         '/': () => Test('Click me'),
@@ -273,6 +309,7 @@ export const App = () => {
               props[0]
             )}`
         },
+        '/context': ContextTest,
       })}
     </div>
   `
