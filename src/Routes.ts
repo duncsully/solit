@@ -2,6 +2,7 @@ import { HTMLTemplateResult, nothing } from 'lit-html'
 import { Signal, batch, computed, signal } from './Signal'
 import { store } from './store'
 import { URLPattern } from 'urlpattern-polyfill'
+import { createContext } from './context'
 
 // @ts-ignore
 globalThis.URLPattern ??= URLPattern
@@ -112,6 +113,8 @@ const sortPaths = (paths: string[]) =>
     return compareSegments(aParts, bParts)
   })
 
+const remainingPathContext = createContext(currentPath)
+
 /**
  * Router component for choosing a route based on the provided path.
  *
@@ -127,20 +130,20 @@ const sortPaths = (paths: string[]) =>
  * - `':param'` matches a route segment if present and passes an object with the key `param` as a signal with the value of the matched param.
  * - `':param?'` matches a route segment, present or not, and passes an object with the key `param` as a signal with the value of the matched param, or undefined if not present.
  *
- * The second argument defaults to the current path signal used by the router navigation functions. You can optionally
- * pass a different signal, e.g. the remaining unprocessed path from a parent router for a nested router.
+ * The second argument defaults to the current remaining path context signal used by the router navigation functions. You can optionally
+ * pass a different signal, e.g. selected tab state, to match against.
  *
  * @example
  *
  * ```ts
  * Router({
  *   '': Home,
- *   'user/*?': (params) =>
+ *   'user/*?': () =>
  *     Router({
  *       '': UsersList,
  *       ':id': ({ id }) => UserDetail(id),
  *       'me': MyProfile,
- *     }, params[0]),
+ *     }),
  *  'about': About,
  *  '*': NotFound,
  * })
@@ -152,7 +155,7 @@ const sortPaths = (paths: string[]) =>
  */
 export const Router = <K, T extends RouteMap<K>>(
   routes: T,
-  path: Signal<string> = currentPath
+  path = remainingPathContext.value
 ) => {
   const params = store({} as any)
 
@@ -161,7 +164,7 @@ export const Router = <K, T extends RouteMap<K>>(
       path.get() ?? ''
     }`
 
-    return sortPaths(Object.keys(routes)).find((route) => {
+    const matchedPath = sortPaths(Object.keys(routes)).find((route) => {
       const formattedRoute = `${route.startsWith('/') ? '' : '/'}${route}`
       const pattern = new URLPattern({
         pathname: formattedRoute,
@@ -176,7 +179,14 @@ export const Router = <K, T extends RouteMap<K>>(
         return formattedRoute
       }
     }) as keyof T | undefined
+
+    return matchedPath
   })
 
-  return computed(() => routes[activePath.get() ?? '']?.(params.$) ?? nothing)
+  return computed(() =>
+    remainingPathContext.provide(
+      params.$[0],
+      () => routes[activePath.get() ?? '']?.(params.$) ?? nothing
+    )
+  )
 }

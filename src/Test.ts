@@ -292,7 +292,7 @@ export const App = () => {
         '/effect-test': EffectTest,
         '/todo': TodoList,
         '/leak-test': MemoryLeakTest,
-        '/nested/*?': (props) => {
+        '/nested/*?': () => {
           const count = signal(0)
           return html` <button @click=${() => count.value++}>
               Count is ${count}
@@ -300,14 +300,11 @@ export const App = () => {
             <a href="/nested">Nested</a>
             <a href="/nested/thing">Thing</a>
             <a href="/nested/thing/optional">Thing with optional</a>
-            ${Router(
-              {
-                '/': () => html`<div>Nested</div>`,
-                '/:thing/:optional?': ({ thing, optional }) =>
-                  html`<div>Nested ${thing}, optional is ${optional}</div>`,
-              },
-              props[0]
-            )}`
+            ${Router({
+              '/': () => html`<div>Nested</div>`,
+              '/:thing/:optional?': ({ thing, optional }) =>
+                html`<div>Nested ${thing}, optional is ${optional}</div>`,
+            })}`
         },
         '/context': ContextTest,
       })}
