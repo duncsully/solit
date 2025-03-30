@@ -1,5 +1,5 @@
 import { HTMLTemplateResult, nothing } from 'lit-html'
-import { Signal, batch, computed, signal } from './Signal'
+import { Signal, computed, signal } from './Signal'
 import { store } from './store'
 import { URLPattern } from 'urlpattern-polyfill'
 import { createContext } from './context'
@@ -42,18 +42,23 @@ type RouteMap<T> = {
 // TODO better type checking to prevent invalid routes
 // TODO Way to load data before returning for SSR?
 // TODO types for modifiers * and +
+// TODO use computed signals for params
 
 const currentPath = signal(window.location.hash.slice(1))
 const setPath = (path: string) => {
-  batch(() => {
-    currentPath.set(path)
-  })
+  currentPath.set(path)
 }
 
 let historyRouting = false
-export const setupHistoryRouting = () => {
+let basePath = ''
+export const setupHistoryRouting = ({ base }: { base?: string } = {}) => {
+  basePath = base ?? ''
   historyRouting = true
-  setPath(window.location.pathname)
+  let initialPath = window.location.pathname
+  if (initialPath.startsWith(basePath)) {
+    initialPath = initialPath.slice(basePath.length)
+  }
+  setPath(initialPath)
 }
 
 window.addEventListener('click', (e) => {
@@ -78,13 +83,15 @@ window.addEventListener('popstate', () => {
 })
 
 export const navigate = (path: string) => {
+  let fullPath = path
   if (historyRouting) {
-    window.history.pushState({}, '', path)
+    fullPath = basePath + path
+    window.history.pushState({}, '', fullPath)
   } else {
-    window.location.hash = path
+    window.location.hash = fullPath
   }
 
-  setPath(path)
+  setPath(fullPath)
 }
 
 const isStaticSegment = (segment: string) =>
