@@ -260,6 +260,57 @@ describe('Computed', () => {
       expect(getterCheck).toHaveBeenCalled()
     })
 
+    it('does not recompute if dependencies have not changed between losing and gaining subscription', () => {
+      const count = new Signal(1)
+      const getterCheck = vi.fn(() => count.value)
+      const doubled = new Computed(() => getterCheck() * 2)
+      const unsub = doubled.subscribe(vi.fn())
+      unsub()
+
+      getterCheck.mockClear()
+
+      doubled.subscribe(vi.fn())
+
+      expect(getterCheck).not.toHaveBeenCalled()
+    })
+
+    it('subscribes to cached dependencies when getting a cache hit', () => {
+      const checkSecond = new Signal(true)
+      const num = new Signal(1)
+      const comp = new Computed(
+        () => {
+          if (checkSecond.value) return num.value * 2
+          return 0
+        },
+        { cacheSize: 2 }
+      )
+
+      const subscriber = vi.fn()
+      comp.subscribe(subscriber) // computed, added to cache: true, 1 => 2
+
+      checkSecond.set(false) // computed, added to cache: false => 0
+      checkSecond.set(true) // retrieved from cache: true, 1 => 2
+
+      num.set(2) // Not in cache, but are we subscribed to this dependency?
+
+      expect(subscriber).toHaveBeenCalledWith(4)
+    })
+
+    it('tracks dependencies again after losing and regaining subscription', () => {
+      const count = new Signal(1)
+      const getterCheck = vi.fn(() => count.value)
+      const doubled = new Computed(() => getterCheck() * 2)
+      const unsub = doubled.subscribe(vi.fn())
+      unsub()
+
+      getterCheck.mockClear()
+
+      doubled.subscribe(vi.fn())
+      count.set(3)
+
+      expect(getterCheck).toHaveBeenCalled()
+    })
+
     it('does not update if recomputed value still the same after dependencies change', () => {
       const float = new Signal(1.1)
       const floored = new Computed(() => Math.floor(float.get()))

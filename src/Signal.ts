@@ -54,6 +54,7 @@ export class SignalBase<T> {
     this._lastBroadcastValue = _value
 
     this.get = this.get.bind(this)
+    this.updateSubscribers = this.updateSubscribers.bind(this)
 
     SignalBase._getToSignalMap.set(this.get, this)
   }
@@ -175,6 +176,13 @@ export class Computed<T> extends SignalBase<T> {
       this._cache.splice(this._cache.indexOf(cachedResult), 1)
       this._cache.unshift(cachedResult)
 
+      // Swap out dependency subscriptions
+      const cacheDependencies = new Set(cachedResult.dependencies.keys())
+      const toRemove = this._dependencies.difference(cacheDependencies)
+      toRemove.forEach(this.removeDependency)
+      const toAdd = cacheDependencies.difference(this._dependencies)
+      toAdd.forEach(this.addDependency)
+
       this._value = cachedResult.value
     } else {
       this.computeValue()
@@ -186,7 +194,7 @@ export class Computed<T> extends SignalBase<T> {
     const unsubscribe = super.observe(subscriber)
     // Need to track dependencies now that we have a subscriber
     if (this._subscribers.size === 1) {
-      this.computeValue()
+      this.peek
     }
     return unsubscribe
   }
@@ -197,15 +205,14 @@ export class Computed<T> extends SignalBase<T> {
     // since we don't need to track them anymore. When we get a new
     // subscriber, we'll recompute and re-subscribe to dependencies.
     if (!this._subscribers.size) {
-      this._toUnsubscribe.forEach(Reflect.apply)
-      this._toUnsubscribe.clear()
+      this.clearDependencies()
     }
   }
 
   setDependency = (dependency: SignalBase<any>, value: any) => {
     // Don't bother tracking dependencies if there are no subscribers
     if (this._subscribers.size) {
-      this._toUnsubscribe.add(dependency.observe(this.updateSubscribers))
+      this.addDependency(dependency)
     }
     const lastCache = this._cache[0]
     if (lastCache) {
@@ -213,15 +220,11 @@ export class Computed<T> extends SignalBase<T> {
     }
   }
 
-  updateSubscribers = () => {
-    super.updateSubscribers()
-  }
-
   protected computeValue() {
     SignalBase.context.push(this)
 
-    this._toUnsubscribe.forEach(Reflect.apply)
-    this._toUnsubscribe.clear()
+    // TODO: Make this more efficient? Could do something similar to peek.
+    this.clearDependencies()
 
     if (this._cacheSize) {
       this._cache.unshift({
@@ -236,9 +239,26 @@ export class Computed<T> extends SignalBase<T> {
     SignalBase.context.pop()
   }
 
+  protected addDependency = (dependency: SignalBase<any>) => {
+    dependency.observe(this.updateSubscribers)
+    this._dependencies.add(dependency)
+  }
+
+  protected removeDependency = (dependency: SignalBase<any>) => {
+    dependency.unsubscribe(this.updateSubscribers)
+    this._dependencies.delete(dependency)
+  }
+
+  protected clearDependencies = () => {
+    this._dependencies.forEach((dependency) => {
+      dependency.unsubscribe(this.updateSubscribers)
+    })
+    this._dependencies.clear()
+  }
+
   protected _cacheSize = 1
   protected _cache = [] as CachedResult<T>[]
-  protected _toUnsubscribe = new Set<() => void>()
+  protected _dependencies = new Set<SignalBase<any>>()
 }
 
 /**
