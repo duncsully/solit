@@ -45,9 +45,17 @@ export const notEqual = <T>(
  */
 export class SignalBase<T> {
   static context: Computed<any>[] = []
+  static _getToSignalMap = new WeakMap<
+    SignalBase<any>['get'],
+    SignalBase<any>
+  >()
 
   constructor(protected _value: T, protected _options: SignalOptions<T> = {}) {
     this._lastBroadcastValue = _value
+
+    this.get = this.get.bind(this)
+
+    SignalBase._getToSignalMap.set(this.get, this)
   }
 
   /**

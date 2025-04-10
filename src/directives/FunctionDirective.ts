@@ -5,7 +5,7 @@ import {
   PartType,
   directive,
 } from 'lit-html/async-directive.js'
-import { Computed, batch, computed } from '../Signal'
+import { Computed, batch, computed, SignalBase } from '../Signal'
 
 export class FunctionDirective extends AsyncDirective {
   static signalCache = new WeakMap<Function, Computed<any>>()
@@ -18,6 +18,10 @@ export class FunctionDirective extends AsyncDirective {
 
   render(func: Function) {
     if (this.shouldCompute) {
+      const mappedSignal = SignalBase._getToSignalMap.get(func as () => void)
+      if (mappedSignal) {
+        return observe(mappedSignal)
+      }
       if (!FunctionDirective.signalCache.has(func)) {
         FunctionDirective.signalCache.set(func, computed(func as () => void))
       }

@@ -22,6 +22,24 @@ describe('html', () => {
     })
   })
 
+  it('accepts get method of signals and updates the DOM when signal updates', () => {
+    const sig = signal('Test')
+    const el = html`<p>${sig.get}</p>`
+    render(el, window.document.body)
+
+    expect(window.document.body.children[0]).toMatchObject({
+      tagName: 'P',
+      textContent: 'Test',
+    })
+
+    sig.set('Updated')
+
+    expect(window.document.body.children[0]).toMatchObject({
+      tagName: 'P',
+      textContent: 'Updated',
+    })
+  })
+
   it('accepts functions and treats them as computed signals', () => {
     const sig = signal('Test')
     const el = html`<p>${() => sig.value}</p>`
