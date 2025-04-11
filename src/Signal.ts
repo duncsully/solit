@@ -223,8 +223,8 @@ export class Computed<T> extends SignalBase<T> {
   protected computeValue() {
     SignalBase.context.push(this)
 
-    // TODO: Make this more efficient? Could do something similar to peek.
-    this.clearDependencies()
+    const previousDependencies = new Set(this._dependencies)
+    this._dependencies = new Set()
 
     if (this._cacheSize) {
       this._cache.unshift({
@@ -237,6 +237,11 @@ export class Computed<T> extends SignalBase<T> {
     const lastCache = this._cache[0]
     if (lastCache) lastCache.value = this._value
     SignalBase.context.pop()
+    previousDependencies
+      .difference(this._dependencies)
+      .forEach((dependency) => {
+        this.removeDependency(dependency)
+      })
   }
 
   protected addDependency = (dependency: SignalBase<any>) => {
