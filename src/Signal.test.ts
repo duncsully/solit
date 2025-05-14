@@ -221,6 +221,15 @@ describe('Computed', () => {
         expect(subscriber).not.toHaveBeenCalled()
       })
     })
+
+    describe('toJson', () => {
+      it('return the value of the computed signal', () => {
+        const number = new Signal(1)
+        const doubled = new Computed(() => number.get() * 2)
+
+        expect(JSON.stringify(doubled)).toBe('2')
+      })
+    })
   })
 
   // Not important to the API contract, but important for behavior, e.g. performance

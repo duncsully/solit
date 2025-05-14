@@ -119,6 +119,10 @@ export class SignalBase<T> {
     return value
   }
 
+  toJSON() {
+    return this.peek
+  }
+
   protected updateSubscribers() {
     const { hasChanged = notEqual } = this._options
     if (
@@ -239,9 +243,7 @@ export class Computed<T> extends SignalBase<T> {
     SignalBase.context.pop()
     previousDependencies
       .difference(this._dependencies)
-      .forEach((dependency) => {
-        this.removeDependency(dependency)
-      })
+      .forEach(this.removeDependency)
   }
 
   protected addDependency = (dependency: SignalBase<any>) => {
@@ -355,8 +357,8 @@ export const signal = <T>(value: T, options?: SignalOptions<T>) =>
  * Creates a computed signal that tracks signal dependencies, can be tracked by
  * other computed signals, and updates lazily
  * @param getter - The function that computes the value of the signal,
- *  tracking any dependencies with `.get()` and ignoring any
- *  read with `.peek()`
+ *  tracking any dependencies with `.get()` or `.value` and ignoring any
+ *  read with `.peek`
  * @param options
  * @returns
  * @example
