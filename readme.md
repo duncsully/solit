@@ -195,56 +195,23 @@ count.set(1) // Read from cache 1 -> 2
 count.set(3) // Computed 4th time -> 8, cache size exceeded, removed 0 -> 0, cached 1 -> 2, 2 -> 4, 3 -> 6
 ```
 
-#### computedGroup - Computing multiple values in one calculation
+#### computedGroup - One calculation, multiple signals
 
-Sometimes you may want to create multiple computed signals that depend on the same calculation. For example, if you had a todo list that you wanted to separate into complete and incomplete todos, it'd be inefficient to filter the list twice. Instead, you can use `computedGroup` to compute multiple values in one calculation. Simply pass in your getter function that returns an object or array with the computed values, and it will return an object or array of computed signals respectively. They can be tracked individually like any other computed signal, so if a calculation only affects one of the values, only that computed signal will update its subscribers.
+You can use `computedGroup` to create multiple computed signals from a single computation.
 
 ```ts
-const todos = signal([
-  { text: 'Learn JavaScript', complete: true },
-  { text: 'Learn SoLit', complete: true },
-  { text: 'Build something with SoLit', complete: false },
-  { text: 'Contribute to SoLit', complete: false },
-])
+const {
+  red,
+  green,
+  blue,
+} = computedGroup(() => {
+  return colorBalls.get().reduce((acc, ball) => {
+    acc[ball]++
+    return acc
+  }, { red: 0, green: 0, blue: 0 })
+})
 
-const handleKeyUp = (e: KeyboardEvent) => {
-  if (e.key === 'Enter') {
-    todos.update((current) => [
-      ...current,
-      { text: e.target.value, complete: false },
-    ])
-  }
-}
-
-const { complete, incomplete } = computedGroup(() =>
-  todos.get().reduce(
-    (acc, todo) => {
-      if (todo.complete) {
-        acc.complete.push(todo)
-      } else {
-        acc.incomplete.push(todo)
-      }
-      return acc
-    },
-    { complete: [], incomplete: [] }
-  )
-)
-
-return html`
-  <div>
-    <h2>Complete</h2>
-    <ul>
-      <!-- Adding an incomplete todo won't rerender this -->
-      ${() => complete.get().map((todo) => html`<li>${todo.text}</li>`)}
-    </ul>
-    <h2>Incomplete</h2>
-    <ul>
-      <!-- But this will get rerendered -->
-      ${() => incomplete.get().map((todo) => html`<li>${todo.text}</li>`)}
-    </ul>
-    <input type="text" @keyup=${handleKeyUp} />
-  </div>
-`
+const redCount = red.get()
 ```
 
 #### Destructured methods
@@ -255,4 +222,39 @@ All methods are bound to their signal instances, so you can safely destructure t
 const { get: getValue, set: setValue } = signal('')
 
 return html`<input .value=${getValue} @input=${e => setValue(e.target.value)} />`
+```
+
+## Recipes
+
+### Sync with localStorage
+
+```ts
+const localStorageSignal = <T>(key: string, initialValue: T) => {
+  const storedValue = localStorage.getItem(key)
+  const value = storedValue ? JSON.parse(storedValue) : initialValue
+  const sig = signal(value)
+
+  sig.subscribe((value) => {
+    localStorage.setItem(key, JSON.stringify(value))
+  })
+
+  return sig
+}
+```
+
+### Sync with URLSearchParams
+
+```ts
+const urlSearchParamsSignal = (key: string, initialValue: string) => {
+  const params = new URLSearchParams(window.location.search)
+  const value = params.get(key) ?? initialValue
+  const sig = signal(value)
+
+  sig.subscribe((value) => {
+    params.set(key, value)
+    window.history.replaceState({}, '', '?' + params.toString())
+  })
+
+  return sig
+}
 ```
