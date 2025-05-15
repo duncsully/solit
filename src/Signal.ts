@@ -112,17 +112,23 @@ export class SignalBase<T> {
    */
   get() {
     const caller = SignalBase.context.at(-1)
-    const value = this.peek
-    if (caller) {
-      caller.setDependency(this, value)
-    }
-    return value
+    caller?.setDependency(this)
+
+    return this.peek
   }
 
+  /**
+   * Returns the current value of the signal (for JSON serialization)
+   * @returns The current value of the signal
+   */
   toJSON() {
     return this.peek
   }
 
+  /**
+   * Check if the signal has subscribers that need to be updated,
+   * and if so, calls them with the current value.
+   */
   protected updateSubscribers() {
     const { hasChanged = notEqual } = this._options
     if (
@@ -134,6 +140,9 @@ export class SignalBase<T> {
     }
   }
 
+  /**
+   * Set of callbacks to be called when the value changes.
+   */
   protected _subscribers = new Set<Subscriber<T>>()
   /**
    * Tracks what the last value was that was broadcasted to subscribers
@@ -187,11 +196,10 @@ export class Computed<T> extends SignalBase<T> {
       const toAdd = cacheDependencies.difference(this._dependencies)
       toAdd.forEach(this.addDependency)
 
-      this._value = cachedResult.value
-    } else {
-      this.computeValue()
+      return (this._value = cachedResult.value)
     }
-    return super.peek
+
+    return this.computeValue()
   }
 
   observe = (subscriber: Subscriber<T>) => {
@@ -213,15 +221,13 @@ export class Computed<T> extends SignalBase<T> {
     }
   }
 
-  setDependency = (dependency: SignalBase<any>, value: any) => {
+  setDependency = (dependency: SignalBase<any>) => {
     // Don't bother tracking dependencies if there are no subscribers
     if (this._subscribers.size) {
       this.addDependency(dependency)
     }
     const lastCache = this._cache[0]
-    if (lastCache) {
-      lastCache.dependencies.set(dependency, value)
-    }
+    lastCache?.dependencies.set(dependency, dependency.peek)
   }
 
   protected computeValue() {
@@ -244,6 +250,8 @@ export class Computed<T> extends SignalBase<T> {
     previousDependencies
       .difference(this._dependencies)
       .forEach(this.removeDependency)
+
+    return this._value
   }
 
   protected addDependency = (dependency: SignalBase<any>) => {
@@ -257,10 +265,7 @@ export class Computed<T> extends SignalBase<T> {
   }
 
   protected clearDependencies = () => {
-    this._dependencies.forEach((dependency) => {
-      dependency.unsubscribe(this.updateSubscribers)
-    })
-    this._dependencies.clear()
+    this._dependencies.forEach(this.removeDependency)
   }
 
   protected _cacheSize = 1
