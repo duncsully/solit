@@ -278,7 +278,7 @@ export class Computed<T> extends SignalBase<T> {
  * tracked by Computed signals
  */
 export class Signal<T> extends SignalBase<T> {
-  static batchedUpdateChecks: null | Set<Signal<any>>
+  static batchedUpdateChecks: null | Set<() => void>
   /**
    * All subscription updates will be deferred until after passed action has run,
    * preventing a subscriber from being updated multiple times for multiple
@@ -291,9 +291,7 @@ export class Signal<T> extends SignalBase<T> {
     Signal.batchedUpdateChecks ??= new Set()
     const result = action()
     if (flush) {
-      Signal.batchedUpdateChecks?.forEach((signal) => {
-        signal.updateSubscribers()
-      })
+      Signal.batchedUpdateChecks?.forEach(Reflect.apply)
       Signal.batchedUpdateChecks = null
     }
     return result
@@ -334,10 +332,10 @@ export class Signal<T> extends SignalBase<T> {
 
   protected requestUpdate() {
     if (Signal.batchedUpdateChecks) {
-      Signal.batchedUpdateChecks.add(this)
-    } else {
-      this.updateSubscribers()
+      Signal.batchedUpdateChecks.add(this.updateSubscribers)
+      return
     }
+    this.updateSubscribers()
   }
 }
 
