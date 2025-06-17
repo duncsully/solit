@@ -246,13 +246,14 @@ const localStorageSignal = <T>(key: string, initialValue: T) => {
 
 ```ts
 const urlSearchParamsSignal = (key: string, initialValue: string) => {
-  const params = new URLSearchParams(window.location.search)
-  const value = params.get(key) ?? initialValue
+  const initialParams = new URLSearchParams(window.location.search)
+  const value = initialParams.get(key) ?? initialValue
   const sig = signal(value)
 
   sig.subscribe((value) => {
-    params.set(key, value)
-    window.history.replaceState({}, '', '?' + params.toString())
+    const currentParams = new URLSearchParams(window.location.search)
+    currentParams.set(key, value)
+    window.history.replaceState({}, '', '?' + currentParams.toString())
   })
 
   return sig
