@@ -17,19 +17,19 @@ export class FunctionDirective extends AsyncDirective {
   shouldCompute: boolean
 
   render(func: Function) {
-    if (this.shouldCompute) {
-      const mappedSignal = SignalBase._getToSignalMap.get(func as () => void)
-      if (mappedSignal) {
-        return observe(mappedSignal)
+    if (!this.shouldCompute) {
+      return (...forward: unknown[]) => {
+        return batch(() => func(...forward))
       }
-      if (!FunctionDirective.signalCache.has(func)) {
-        FunctionDirective.signalCache.set(func, computed(func as () => void))
-      }
-      return observe(FunctionDirective.signalCache.get(func)!)
     }
-    return (...forward: unknown[]) => {
-      return batch(() => func(...forward))
+    const mappedSignal = SignalBase._getToSignalMap.get(func as () => void)
+    if (mappedSignal) {
+      return observe(mappedSignal)
     }
+    if (!FunctionDirective.signalCache.has(func)) {
+      FunctionDirective.signalCache.set(func, computed(func as () => void))
+    }
+    return observe(FunctionDirective.signalCache.get(func)!)
   }
 }
 /**
