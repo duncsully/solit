@@ -1,6 +1,6 @@
 /**
  * Creates a context object that can be used to pass values deeply through a callstack,
- * such as a SoLit component tree.
+ * such as a Solit-html component tree.
  * @param defaultValue - The default value for the context. This is used when no provider
  * is found in the callstack.
  * @returns

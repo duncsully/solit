@@ -1,6 +1,6 @@
-# SoLit
+# Solit-html
 
-Solid, but with lit-html. "Components" are just functions that setup reactive lit-html templates. State and effects are managed with writable and computed signals that automatically track dependent signals. No JSX, no manual dependency tracking, no rules of hooks, no VDOM, no compiler.
+Yet another user interface library. Small, simple, signal-based, and sfunctional (OK, so maybe that one doesn't start with S...). It's like SolidJS, but with lit-html. "Components" are just functions that setup reactive lit-html templates. State and effects are managed with writable and computed signals that automatically track dependent signals. No JSX, no manual dependency tracking, no rules of hooks, no VDOM, no compiler.
 
 Only four primitives are needed to build reactive components:
 
@@ -12,7 +12,7 @@ Only four primitives are needed to build reactive components:
 The returned template results of calling a component can then be rendered with lit-html's `render` function.
 
 ```ts
-import { signal, computed, effects, html, Signal } from 'solit'
+import { signal, computed, effects, html, Signal } from 'solit-html'
 import { render } from 'lit-html'
 
 const Counter = () => {
@@ -60,7 +60,7 @@ render(Counter(), document.body)
 
 ## Signals
 
-Signals are the state management solution in SoLit. There are writable signals created with `signal(initialValue)` and computed signals created with `computed(getter)`. They both have the following common properties and methods:
+Signals are the state management solution in Solit-html. There are writable signals created with `signal(initialValue)` and computed signals created with `computed(getter)`. They both have the following common properties and methods:
 
 - `get()` - returns the current value. When used inside of a computed signal's getter, an effect, or a function inside of a template, the signal is automatically tracked as a dependency.
 - `value` - a getter property that wraps the `get` method for both computed and writable signals
@@ -87,7 +87,7 @@ Templates are built using a slightly enhanced version of lit-html. The `html` te
 - Prefix element properties with `.` to set them as properties instead of attributes e.g. `<button .value=${value}>`
 - Prefix event names (without "on") with `@` to set event listeners e.g. `<button @click=${handleClick}>`
 
-The `html` exported from SoLit adds additional functionality:
+The `html` exported from Solit-html adds additional functionality:
 
 - `false` will not render as a text node to make conditional rendering easier (use .toString() if you want to display booleans as text)
 - Signals and their `.get` methods can be passed directly in and will automatically and surgically update the DOM when they change
@@ -96,13 +96,13 @@ The `html` exported from SoLit adds additional functionality:
 
 ### Effects
 
-Effects are a way to run side effects in response to changes in signals. They are similar to the `useEffect` hook in React, but since components don't really exist at runtime in SoLit, they are not bound to a component lifecycle. Instead, they are bound to an element in the template via the `effects` directive. 
+Effects are a way to run side effects in response to changes in signals. They are similar to the `useEffect` hook in React, but since components don't really exist at runtime in Solit-html, they are not bound to a component lifecycle. Instead, they are bound to an element in the template via the `effects` directive. 
 
 You can pass in one or more effect callbacks to the `effects` directive, and they will be run in the order they are passed in when the template is rendered. They can optionally return a cleanup function. Whenever their dependencies change, the cleanup function will be called if it exists, and then the effect will be run again. The cleanup function will also be called when the element is removed from the DOM.
 
 ### bind directive
 
-SoLit provides a `bind` directive to two-way bind an element's attribute or property to a signal. By default it binds to the input event, but you can pass an event name as the second argument to bind to a different event.
+Solit-html provides a `bind` directive to two-way bind an element's attribute or property to a signal. By default it binds to the input event, but you can pass an event name as the second argument to bind to a different event.
 
 ```ts
 const firstName = signal('')
@@ -142,7 +142,7 @@ const DeeplyNestedComponent = () => {
 
 ## Routing
 
-SoLit provides a simple router that can optionally leverage the `history` API, automatically handling anchor clicks to local hrefs. It uses URLPattern (polyfilled in browsers that don't support it) to match routes. You create a router with the `Router` function, passing in an object of routes to functions that will receive the route parameters as objects of signals. You can end a route with "*" or "*?" to match all the remaining URL segments, and then nest another Router inside that route to accomplish layouts and subrouting. Each Router establishes a context with the remaining unprocessed URL segments for the following Router to consume. 
+Solit-html provides a simple router that can optionally leverage the `history` API, automatically handling anchor clicks to local hrefs. It uses URLPattern (polyfilled in browsers that don't support it) to match routes. You create a router with the `Router` function, passing in an object of routes to functions that will receive the route parameters as objects of signals. You can end a route with "*" or "*?" to match all the remaining URL segments, and then nest another Router inside that route to accomplish layouts and subrouting. Each Router establishes a context with the remaining unprocessed URL segments for the following Router to consume. 
 
  ```ts
 setupHistoryRouting({

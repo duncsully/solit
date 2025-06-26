@@ -1,3 +1,3 @@
 export default {
-  base: '/solit/',
+  base: '/solit-html/',
 }

@@ -13,7 +13,7 @@ export default defineConfig({
     emptyOutDir: false,
     lib: {
       entry: resolve(__dirname, 'src/index.ts'),
-      name: 'solit',
+      name: 'solit-html',
       fileName: 'main',
     },
     minify: false,
