@@ -1,6 +1,8 @@
+This package is very much still under development and the API instable. While the core API is unlikely to change, various features are still being added, tweaked, moved, and removed. 
+
 # Solit-html
 
-Yet another user interface library. Small, simple, signal-based, and sfunctional (OK, so maybe that one doesn't start with S...). It's like SolidJS, but with lit-html. "Components" are just functions that setup reactive lit-html templates. State and effects are managed with writable and computed signals that automatically track dependent signals. No JSX, no manual dependency tracking, no rules of hooks, no VDOM, no compiler.
+Yet another user interface library. Small, simple, signal-based, and sfunctional (OK, so maybe that one doesn't start with S). It's like SolidJS, but with lit-html. "Components" are just functions that setup reactive lit-html templates. State and effects are managed with writable and computed signals that automatically track dependent signals. No JSX, no manual dependency tracking, no rules of hooks, no VDOM, no compiler.
 
 Only four primitives are needed to build reactive components:
 
