@@ -23,9 +23,10 @@ export class SignalBase<T> {
     SignalBase<any>
   >()
 
-  constructor(protected _value: T, protected _options: SignalOptions<T> = {}) {
-    this._lastBroadcastValue = _value
-
+  constructor(
+    protected _initialValue: T,
+    protected _options: SignalOptions<T> = {}
+  ) {
     this.get = this.get.bind(this)
     this.updateSubscribers = this.updateSubscribers.bind(this)
 
@@ -112,17 +113,20 @@ export class SignalBase<T> {
       this._lastBroadcastValue = this._value
     }
   }
-
   /**
-   * Set of callbacks to be called when the value changes.
+   * The current value of the signal.
    */
-  protected _subscribers = new Set<Subscriber<T>>()
+  protected _value = this._initialValue
   /**
    * Tracks what the last value was that was broadcasted to subscribers
    * in case the value changes but changes back to the last broadcasted value
    * before the next update. This prevents unnecessary updates to subscribers.
    */
-  protected _lastBroadcastValue: T | undefined
+  protected _lastBroadcastValue = this._initialValue
+  /**
+   * Set of callbacks to be called when the value changes.
+   */
+  protected _subscribers = new Set<Subscriber<T>>()
 }
 
 export const notEqual = <T>(

@@ -23,9 +23,6 @@ export class Signal<T> extends SignalBase<T> {
     }
     return result
   }
-  constructor(protected _initialValue: T, _options: SignalOptions<T> = {}) {
-    super(_initialValue, _options)
-  }
 
   get value() {
     return super.value
