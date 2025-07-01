@@ -1,6 +1,6 @@
 import { noChange } from 'lit-html'
 import { AsyncDirective, directive } from 'lit-html/async-directive.js'
-import { watch, type Effect } from '../Signal'
+import { watch, type Effect } from '../signals/watch'
 
 export class EffectDirective extends AsyncDirective {
   cleanups: (() => void)[] = []

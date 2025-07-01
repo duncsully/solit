@@ -1,5 +1,6 @@
 import { HTMLTemplateResult, nothing } from 'lit-html'
-import { Signal, computed, signal } from './Signal'
+import { Signal, signal } from './signals/Signal'
+import { computed } from './signals/ComputedSignal'
 import { store } from './store'
 import { URLPattern } from 'urlpattern-polyfill'
 import { createContext } from './context'

@@ -1,4 +1,6 @@
-import { Computed, SignalBase, Signal, batch, computed, signal } from './Signal'
+import { Signal, batch, signal } from './signals/Signal'
+import { ComputedSignal, computed } from './signals/ComputedSignal'
+import { SignalBase } from './signals/SignalBase'
 
 type IfEquals<X, Y, A, B> = (<T>() => T extends X ? 1 : 2) extends <
   T
@@ -27,14 +29,14 @@ type Store<T> = T /* {
       ? T[K] extends Object
         ? Signal<Store<T[K]>>
         : Signal<T[K]>
-      : Computed<T[K]>
+      : ComputedSignal<T[K]>
   }
 } & {
   readonly [K in keyof T as `${string & K}_`]: T[K]
 } & {
   readonly [K in keyof T as `${string & K}$`]: K extends WritableKeysOf<T>
     ? Signal<T[K]>
-    : Computed<T[K]>
+    : ComputedSignal<T[K]>
 }
 
 /* 

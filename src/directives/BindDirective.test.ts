@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { signal } from '../Signal'
+import { signal } from '../signals/Signal'
 import { render } from 'lit-html'
 import { html } from '../html'
 import { bind } from './BindDirective'

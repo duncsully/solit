@@ -6,7 +6,7 @@ import {
   directive,
   type PartInfo,
 } from 'lit-html/directive.js'
-import { Signal } from '../Signal'
+import { Signal } from '../signals/Signal'
 import { ObserveDirective } from './ObserveDirective'
 
 export class BindDirective extends ObserveDirective {

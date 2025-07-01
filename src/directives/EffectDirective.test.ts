@@ -1,8 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { html } from '../html'
 import { render } from 'lit-html'
-import { signal } from '../Signal'
-import { ref } from 'lit-html/directives/ref.js'
+import { signal } from '../signals/Signal'
 import { effects } from './EffectDirective'
 
 describe('effects', () => {

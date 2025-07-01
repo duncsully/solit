@@ -5,10 +5,12 @@ import {
   PartType,
   directive,
 } from 'lit-html/async-directive.js'
-import { Computed, batch, computed, SignalBase } from '../Signal'
+import { ComputedSignal, computed } from '../signals/ComputedSignal'
+import { batch } from '../signals/Signal'
+import { SignalBase } from '../signals/SignalBase'
 
 export class FunctionDirective extends AsyncDirective {
-  static signalCache = new WeakMap<Function, Computed<any>>()
+  static signalCache = new WeakMap<Function, ComputedSignal<any>>()
   constructor(partInfo: PartInfo) {
     super(partInfo)
     this.shouldCompute = partInfo.type !== PartType.EVENT

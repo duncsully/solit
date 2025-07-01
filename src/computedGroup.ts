@@ -1,8 +1,8 @@
-import { Computed, computed } from './Signal'
+import { ComputedSignal, computed } from './signals/ComputedSignal'
 
 type Return<T> = T extends Array<infer V>
-  ? Computed<V>[]
-  : { [K in keyof T]: Computed<T[K]> }
+  ? ComputedSignal<V>[]
+  : { [K in keyof T]: ComputedSignal<T[K]> }
 
 export function computedGroup<T extends object | unknown[]>(getter: () => T) {
   const whole = computed(getter)
@@ -15,5 +15,5 @@ export function computedGroup<T extends object | unknown[]>(getter: () => T) {
   return Object.keys(whole.get()).reduce((acc, key) => {
     acc[key as keyof T] = computed(() => whole.get()[key as keyof T])
     return acc
-  }, {} as { [K in keyof T]: Computed<T[K]> }) as Return<T>
+  }, {} as { [K in keyof T]: ComputedSignal<T[K]> }) as Return<T>
 }

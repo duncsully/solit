@@ -1,4 +1,4 @@
-import { SignalBase } from './Signal'
+import { SignalBase } from './signals/SignalBase'
 import { suppressFalseAsText } from './directives'
 import { func } from './directives/FunctionDirective'
 import { observe } from './directives/ObserveDirective'

@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from 'vitest'
 import { store } from './store'
-import { computed, signal, watch } from './Signal'
+import { signal } from './signals/Signal'
+import { computed } from './signals/ComputedSignal'
+import { watch } from './signals/watch'
 
 describe('store', () => {
   it('allows reading properties', () => {
