@@ -1,5 +1,6 @@
 import { styleMap } from 'lit-html/directives/style-map.js'
-import { Signal, batch, computed, signal } from '../../Signal'
+import { Signal, batch, signal } from '../../signals/Signal'
+import { computed } from '../../signals/ComputedSignal'
 import { html } from '../../html'
 import { Card, Rank, Suit } from './Card'
 import { repeat } from 'lit-html/directives/repeat.js'
