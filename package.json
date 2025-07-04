@@ -30,6 +30,7 @@
     "@testing-library/user-event": "^14.5.2",
     "@types/node": "^22.13.14",
     "happy-dom": "^17.4.4",
+    "rollup-plugin-node-externals": "^8.0.1",
     "typescript": "^5.4.5",
     "vite": "^7.0.0",
     "vitest": "^3.2.4"

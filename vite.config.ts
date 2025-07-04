@@ -1,9 +1,12 @@
 import { resolve } from 'path'
 import { defineConfig } from 'vitest/config'
-
-// TODO: Clean up TS d files
+import { nodeExternals } from 'rollup-plugin-node-externals'
 
 export default defineConfig({
+  // This is a library, so we don't want to bundle any dependencies nor minify.
+  // Dev deps are included by default with the assumption they're needed for a library.
+  // This is not the case for solit-html (truly are just dev deps), so we explicitly exclude them.
+  plugins: [nodeExternals({ devDeps: true })],
   server: {
     port: 5174,
   },
